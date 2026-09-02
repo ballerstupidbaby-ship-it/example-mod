@@ -1,0 +1,23 @@
+name: Build Geode Mod
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Geode Mod
+        id: build
+        uses: geode-sdk/build-geode-mod@main
+        with:
+          target: Android64
+
+      - name: Upload Mod
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoDeco
+          path: ${{ steps.build.outputs.build-output }}
