@@ -8,8 +8,6 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         if (!EditorUI::init(editorLayer))
             return false;
 
-        log::info("Auto Deco loaded");
-
         auto menu = CCMenu::create();
         menu->setPosition(0, 0);
 
@@ -38,9 +36,8 @@ class $modify(AutoDecoEditorUI, EditorUI) {
 
     void onAutoDeco(CCObject*) {
         auto selected = this->m_selectedObjects;
-        int count = selected ? selected->count() : 0;
 
-        if (count == 0) {
+        if (!selected || selected->count() == 0) {
             FLAlertLayer::create(
                 "Auto Deco",
                 "Select some blocks first!",
@@ -49,14 +46,52 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             return;
         }
 
-        auto message = fmt::format(
-            "Selected {} objects.",
-            count
-        );
+        for (int i = 0; i < selected->count(); i++) {
+            auto block = static_cast<GameObject*>(selected->objectAtIndex(i));
+
+            if (!block)
+                continue;
+
+            auto pos = block->getPosition();
+
+            // 3D side piece
+            auto side = GameObject::createWithKey(207);
+
+            if (side) {
+                side->setPosition(
+                    CCPoint(
+                        pos.x + 18.0f,
+                        pos.y - 10.0f
+                    )
+                );
+
+                side->setScale(0.85f);
+                side->setRotation(0.0f);
+
+                this->m_editorLayer->addObject(side);
+            }
+
+            // Darker-looking lower piece
+            auto lower = GameObject::createWithKey(208);
+
+            if (lower) {
+                lower->setPosition(
+                    CCPoint(
+                        pos.x + 9.0f,
+                        pos.y - 18.0f
+                    )
+                );
+
+                lower->setScale(0.85f);
+                lower->setRotation(0.0f);
+
+                this->m_editorLayer->addObject(lower);
+            }
+        }
 
         FLAlertLayer::create(
             "Auto Deco",
-            message.c_str(),
+            "3D decoration added!",
             "OK"
         )->show();
     }
