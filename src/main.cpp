@@ -8,8 +8,6 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         if (!EditorUI::init(editorLayer))
             return false;
 
-        log::info("Auto Deco loaded");
-
         auto menu = CCMenu::create();
         menu->setPosition(0, 0);
 
@@ -31,27 +29,60 @@ class $modify(AutoDecoEditorUI, EditorUI) {
 
         button->setPosition(100, 100);
         menu->addChild(button);
-
         this->addChild(menu);
 
         return true;
     }
 
-    void onAutoDeco(CCObject* sender) {
+    void onAutoDeco(CCObject*) {
         auto selected = this->m_selectedObjects;
-
         int count = selected ? selected->count() : 0;
 
-        log::info("AUTO DECO: {} objects selected", count);
+        if (count == 0) {
+            FLAlertLayer::create(
+                "Auto Deco",
+                "Select some blocks first!",
+                "OK"
+            )->show();
+            return;
+        }
 
-        auto message = fmt::format(
-            "Selected {} objects.",
-            count
-        );
+        int created = 0;
+
+        for (unsigned int i = 0; i < selected->count(); i++) {
+            auto object = static_cast<GameObject*>(
+                selected->objectAtIndex(i)
+            );
+
+            if (!object)
+                continue;
+
+            auto deco = GameObject::createWithKey(1);
+
+            if (!deco)
+                continue;
+
+            auto pos = object->getPosition();
+
+            deco->setPosition(
+                pos.x + object->getScaledContentSize().width + 15.f,
+                pos.y
+            );
+
+            deco->setScale(object->getScale());
+            deco->setRotation(object->getRotation());
+
+            this->m_editorLayer->addObject(deco);
+            created++;
+        }
 
         FLAlertLayer::create(
             "Auto Deco",
-            message.c_str(),
+            fmt::format(
+                "Decorated {} of {} selected objects.",
+                created,
+                count
+            ).c_str(),
             "OK"
         )->show();
     }
