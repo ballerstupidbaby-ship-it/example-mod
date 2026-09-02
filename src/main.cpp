@@ -38,13 +38,21 @@ class $modify(AutoDecoEditorUI, EditorUI) {
     }
 
     void onAutoDeco(CCObject* sender) {
-    auto selected = this->m_selectedObjects;
+        auto selected = this->m_selectedObjects;
 
-    log::info("AUTO DECO: {} objects selected", selected.size());
+        int count = selected ? selected->count() : 0;
 
-    FLAlertLayer::create(
-        "Auto Deco",
-        fmt::format("Selected {} objects.", selected.size()).c_str(),
-        "OK"
-    )->show();
-}
+        log::info("AUTO DECO: {} objects selected", count);
+
+        auto message = fmt::format(
+            "Selected {} objects.",
+            count
+        );
+
+        FLAlertLayer::create(
+            "Auto Deco",
+            message.c_str(),
+            "OK"
+        )->show();
+    }
+};
