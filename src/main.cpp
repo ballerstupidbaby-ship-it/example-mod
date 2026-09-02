@@ -47,46 +47,28 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         }
 
         for (int i = 0; i < selected->count(); i++) {
-            auto block = static_cast<GameObject*>(selected->objectAtIndex(i));
+            auto block = static_cast<GameObject*>(
+                selected->objectAtIndex(i)
+            );
 
             if (!block)
                 continue;
 
             auto pos = block->getPosition();
 
-            // 3D side piece
-            auto side = GameObject::createWithKey(207);
+            // Main 3D side piece
+            this->m_editorLayer->createObject(
+                207,
+                CCPoint(pos.x + 18.0f, pos.y - 10.0f),
+                false
+            );
 
-            if (side) {
-                side->setPosition(
-                    CCPoint(
-                        pos.x + 18.0f,
-                        pos.y - 10.0f
-                    )
-                );
-
-                side->setScale(0.85f);
-                side->setRotation(0.0f);
-
-                this->m_editorLayer->addObject(side);
-            }
-
-            // Darker-looking lower piece
-            auto lower = GameObject::createWithKey(208);
-
-            if (lower) {
-                lower->setPosition(
-                    CCPoint(
-                        pos.x + 9.0f,
-                        pos.y - 18.0f
-                    )
-                );
-
-                lower->setScale(0.85f);
-                lower->setRotation(0.0f);
-
-                this->m_editorLayer->addObject(lower);
-            }
+            // Lower 3D piece
+            this->m_editorLayer->createObject(
+                208,
+                CCPoint(pos.x + 9.0f, pos.y - 18.0f),
+                false
+            );
         }
 
         FLAlertLayer::create(
