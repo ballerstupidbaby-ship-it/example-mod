@@ -8,8 +8,36 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         if (!EditorUI::init(editorLayer))
             return false;
 
-        log::info("Auto Deco loaded!");
+        log::info("Auto Deco loaded");
+
+        auto menu = CCMenu::create();
+        menu->setPosition(0, 0);
+
+        auto buttonSprite = ButtonSprite::create(
+            "AUTO DECO",
+            60,
+            true,
+            "goldFont.fnt",
+            "GJ_button_01.png",
+            25,
+            0.6f
+        );
+
+        auto button = CCMenuItemSpriteExtra::create(
+            buttonSprite,
+            this,
+            menu_selector(AutoDecoEditorUI::onAutoDeco)
+        );
+
+        button->setPosition(100, 100);
+        menu->addChild(button);
+
+        this->addChild(menu);
 
         return true;
+    }
+
+    void onAutoDeco(CCObject* sender) {
+        log::info("AUTO DECO BUTTON PRESSED");
     }
 };
