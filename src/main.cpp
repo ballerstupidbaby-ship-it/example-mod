@@ -8,7 +8,7 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         if (!EditorUI::init(editorLayer))
             return false;
 
-        log::info("Auto Deco loaded");
+        log::info("Auto Deco loaded!");
 
         return true;
     }
