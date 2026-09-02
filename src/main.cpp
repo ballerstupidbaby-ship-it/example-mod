@@ -8,6 +8,8 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         if (!EditorUI::init(editorLayer))
             return false;
 
+        log::info("Auto Deco loaded");
+
         auto menu = CCMenu::create();
         menu->setPosition(0, 0);
 
@@ -47,42 +49,14 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             return;
         }
 
-        int created = 0;
-
-        for (unsigned int i = 0; i < selected->count(); i++) {
-            auto object = static_cast<GameObject*>(
-                selected->objectAtIndex(i)
-            );
-
-            if (!object)
-                continue;
-
-            auto deco = GameObject::createWithKey(1);
-
-            if (!deco)
-                continue;
-
-            auto pos = object->getPosition();
-
-            deco->setPosition(
-                pos.x + object->getScaledContentSize().width + 15.f,
-                pos.y
-            );
-
-            deco->setScale(object->getScale());
-            deco->setRotation(object->getRotation());
-
-            this->m_editorLayer->addObject(deco);
-            created++;
-        }
+        auto message = fmt::format(
+            "Selected {} objects.",
+            count
+        );
 
         FLAlertLayer::create(
             "Auto Deco",
-            fmt::format(
-                "Decorated {} of {} selected objects.",
-                created,
-                count
-            ).c_str(),
+            message.c_str(),
             "OK"
         )->show();
     }
