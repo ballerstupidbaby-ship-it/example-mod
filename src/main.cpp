@@ -6,35 +6,35 @@ using namespace geode::prelude;
 class $modify(AutoDecoEditorUI, EditorUI) {
 
     // =========================
-    // COLORS
+    // MODERN NEON PURPLE PALETTE
     // =========================
 
     static ccColor3B dark() {
-        return {8, 4, 14};
+        return {12, 6, 24}; // Very deep cyber void background
     }
 
     static ccColor3B darkPurple() {
-        return {45, 5, 70};
+        return {50, 10, 85}; // Structural backing shading
     }
 
     static ccColor3B purple() {
-        return {150, 0, 255};
+        return {160, 0, 255}; // Dominant theme color
     }
 
     static ccColor3B neon() {
-        return {235, 25, 255};
+        return {240, 30, 255}; // Radiant edge color
     }
 
     static ccColor3B pink() {
-        return {255, 45, 190};
+        return {255, 50, 200}; // Core hot highlights
     }
 
     static ccColor3B cyan() {
-        return {0, 220, 255};
+        return {0, 240, 255}; // Contrast cyber nodes
     }
 
     static ccColor3B white() {
-        return {235, 220, 255};
+        return {245, 230, 255}; // Peak glow reflections
     }
 
 
@@ -80,11 +80,10 @@ class $modify(AutoDecoEditorUI, EditorUI) {
     // =========================
 
     bool init(LevelEditorLayer* editorLayer) {
-
         if (!EditorUI::init(editorLayer))
             return false;
 
-        log::info("Auto Deco loaded");
+        log::info("Auto Deco loaded successfully!");
 
         auto menu = CCMenu::create();
         menu->setPosition(0, 0);
@@ -115,264 +114,86 @@ class $modify(AutoDecoEditorUI, EditorUI) {
 
 
     // =========================
-    // MAKE THE 3D DECORATION
+    // CYBERPUNK 3D TECH BLOCK GENERATION
     // =========================
 
     void decorate(GameObject* source) {
-
         if (!source)
             return;
 
         auto p = source->getPosition();
-
         float s = source->getScale();
+        if (s <= 0.0f) s = 1.0f;
 
-        if (s <= 0.0f)
-            s = 1.0f;
-
-
-        // Put the decoration to the right
-        float x = p.x + (55.0f * s);
+        // Offset the generated decoration block to the right side
+        float x = p.x + (60.0f * s);
         float y = p.y;
 
 
         // -------------------------
-        // BACK LAYER
+        // 1. BACKGROUND FILL LAYER
         // -------------------------
-
-        make(
-            207,
-            CCPoint(x + 10.0f * s, y - 10.0f * s),
-            s * 0.30f,
-            dark(),
-            darkPurple()
-        );
-
-        make(
-            207,
-            CCPoint(x + 20.0f * s, y - 20.0f * s),
-            s * 0.30f,
-            dark(),
-            darkPurple()
-        );
+        // Uses ID 210 (Solid Square Fill) to mask out behind the texturing
+        make(210, CCPoint(x, y), s * 1.0f, dark(), dark());
 
 
         // -------------------------
-        // 3D CORNERS
+        // 2. TECH INNER GRID TEXTURE
         // -------------------------
-
-        make(
-            511,
-            CCPoint(x + 18.0f * s, y + 18.0f * s),
-            s * 0.25f,
-            purple(),
-            darkPurple()
-        );
-
-        make(
-            511,
-            CCPoint(x + 18.0f * s, y - 18.0f * s),
-            s * 0.25f,
-            purple(),
-            darkPurple(),
-            90
-        );
-
-        make(
-            510,
-            CCPoint(x - 18.0f * s, y - 18.0f * s),
-            s * 0.25f,
-            neon(),
-            darkPurple(),
-            180
-        );
+        // Uses ID 1006 (Tech Grid Layout) inside the block to simulate the cyber details
+        make(1006, CCPoint(x, y), s * 0.95f, darkPurple(), purple(), 0.0f, 180);
 
 
         // -------------------------
-        // OUTER FRAME
+        // 3. 3D SHADOW & DEPTH
         // -------------------------
-
-        make(
-            506,
-            CCPoint(x - 18.0f * s, y + 18.0f * s),
-            s * 0.25f,
-            neon(),
-            purple()
-        );
-
-        make(
-            507,
-            CCPoint(x, y + 18.0f * s),
-            s * 0.25f,
-            neon(),
-            purple()
-        );
-
-        make(
-            509,
-            CCPoint(x + 18.0f * s, y + 18.0f * s),
-            s * 0.25f,
-            pink(),
-            purple()
-        );
-
-        make(
-            506,
-            CCPoint(x - 18.0f * s, y),
-            s * 0.25f,
-            neon(),
-            purple(),
-            270
-        );
-
-        make(
-            509,
-            CCPoint(x + 18.0f * s, y),
-            s * 0.25f,
-            pink(),
-            purple(),
-            90
-        );
-
-        make(
-            506,
-            CCPoint(x - 18.0f * s, y - 18.0f * s),
-            s * 0.25f,
-            purple(),
-            darkPurple(),
-            180
-        );
-
-        make(
-            507,
-            CCPoint(x, y - 18.0f * s),
-            s * 0.25f,
-            purple(),
-            darkPurple(),
-            180
-        );
+        // Shifted downward and diagonally to produce a clean volumetric projection
+        make(239, CCPoint(x + 6.0f * s, y - 6.0f * s), s * 1.0f, darkPurple(), dark());
 
 
         // -------------------------
-        // DARK CENTER
+        // 4. MAIN STRUCTURAL OUTLINE FRAME
         // -------------------------
-
-        make(
-            207,
-            CCPoint(x, y),
-            s * 0.30f,
-            dark(),
-            darkPurple()
-        );
+        // Replaced broken 500-lines with ID 239 (Solid 2.1 Block Outlines)
+        make(239, CCPoint(x, y), s * 1.0f, purple(), neon());
 
 
         // -------------------------
-        // INNER FRAME
+        // 5. INTENSE NEON EDGE GLOW
         // -------------------------
-
-        make(
-            524,
-            CCPoint(x - 9.0f * s, y + 9.0f * s),
-            s * 0.15f,
-            purple(),
-            darkPurple()
-        );
-
-        make(
-            525,
-            CCPoint(x, y + 9.0f * s),
-            s * 0.15f,
-            neon(),
-            purple()
-        );
-
-        make(
-            527,
-            CCPoint(x + 9.0f * s, y + 9.0f * s),
-            s * 0.15f,
-            pink(),
-            purple()
-        );
+        // Uses ID 211 (Thick Glow Strip Edge) to emit light outwards
+        make(211, CCPoint(x - 15.0f * s, y), s * 1.0f, neon(), neon(), 90, 200);  // Left Edge
+        make(211, CCPoint(x + 15.0f * s, y), s * 1.0f, neon(), neon(), 270, 200); // Right Edge
+        make(211, CCPoint(x, y + 15.0f * s), s * 1.0f, neon(), neon(), 180, 200); // Top Edge
+        make(211, CCPoint(x, y - 15.0f * s), s * 1.0f, neon(), neon(), 0, 200);   // Bottom Edge
 
 
         // -------------------------
-        // CENTER PANEL
+        // 6. INTERNAL CYBER STRUCTURES
         // -------------------------
-
-        make(
-            210,
-            CCPoint(x, y),
-            s * 0.13f,
-            purple(),
-            neon()
-        );
-
-        make(
-            220,
-            CCPoint(x, y),
-            s * 0.065f,
-            cyan(),
-            white()
-        );
+        // Layering ID 1324 (Tech Inserts) inside the four quadrants
+        make(1324, CCPoint(x - 8.0f * s, y + 8.0f * s), s * 0.4f, darkPurple(), pink());
+        make(1324, CCPoint(x + 8.0f * s, y + 8.0f * s), s * 0.4f, darkPurple(), pink());
+        make(1324, CCPoint(x - 8.0f * s, y - 8.0f * s), s * 0.4f, darkPurple(), pink());
+        make(1324, CCPoint(x + 8.0f * s, y - 8.0f * s), s * 0.4f, darkPurple(), pink());
 
 
         // -------------------------
-        // SMALL TECH NODES
+        // 7. BRIGHT CENTERPULSE CORE
         // -------------------------
-
-        make(
-            220,
-            CCPoint(x - 20.0f * s, y + 20.0f * s),
-            s * 0.045f,
-            cyan(),
-            white()
-        );
-
-        make(
-            220,
-            CCPoint(x + 20.0f * s, y + 20.0f * s),
-            s * 0.045f,
-            pink(),
-            white()
-        );
-
-        make(
-            220,
-            CCPoint(x - 20.0f * s, y - 20.0f * s),
-            s * 0.045f,
-            purple(),
-            cyan()
-        );
-
-        make(
-            220,
-            CCPoint(x + 20.0f * s, y - 20.0f * s),
-            s * 0.045f,
-            cyan(),
-            purple()
-        );
+        // The pulsing tech block right in the center of the structure
+        make(210, CCPoint(x, y), s * 0.35f, pink(), white());
+        make(1825, CCPoint(x, y), s * 0.30f, cyan(), white()); // Cyber Crosshair Detail
 
 
         // -------------------------
-        // CORNER HIGHLIGHTS
+        // 8. CORNER TECH HIGHLIGHTS
         // -------------------------
-
-        make(
-            228,
-            CCPoint(x + 21.0f * s, y - 21.0f * s),
-            s * 0.12f,
-            neon(),
-            purple()
-        );
-
-        make(
-            242,
-            CCPoint(x - 21.0f * s, y + 21.0f * s),
-            s * 0.10f,
-            white(),
-            neon(),
-            45
-        );
+        // Small nodes mapping out the vertices of the blocks
+        make(220, CCPoint(x - 15.0f * s, y + 15.0f * s), s * 0.2f, cyan(), white());
+        make(220, CCPoint(x + 15.0f * s, y + 15.0f * s), s * 0.2f, cyan(), white());
+        make(220, CCPoint(x - 15.0f * s, y - 15.0f * s), s * 0.2f, cyan(), white());
+        make(220, CCPoint(x + 15.0f * s, y - 15.0f * s), s * 0.2f, cyan(), white());
     }
 
 
@@ -381,56 +202,30 @@ class $modify(AutoDecoEditorUI, EditorUI) {
     // =========================
 
     void onAutoDeco(CCObject*) {
-
         auto selected = this->m_selectedObjects;
 
         if (!selected || selected->count() == 0) {
-
             FLAlertLayer::create(
                 "AUTO DECO",
                 "Select some blocks first!",
                 "OK"
             )->show();
-
             return;
         }
 
-
         if (selected->count() > 20) {
-
             FLAlertLayer::create(
                 "AUTO DECO",
                 "Select 20 or fewer blocks at once.",
                 "OK"
             )->show();
-
             return;
         }
 
-
         // Decorate every selected block
         for (int i = 0; i < selected->count(); i++) {
-
-            auto block = static_cast<GameObject*>(
-                selected->objectAtIndex(i)
-            );
-
-            if (block)
-                decorate(block);
+            auto block = static_cast<GameObject*>(selected->objectAtIndex(i));
+            this->decorate(block);
         }
-
-
-        // Confirmation
-        auto text = fmt::format(
-            "Added futuristic 3D deco to {} block{}!",
-            selected->count(),
-            selected->count() == 1 ? "" : "s"
-        );
-
-        FLAlertLayer::create(
-            "AUTO DECO",
-            text.c_str(),
-            "OK"
-        )->show();
     }
 };
