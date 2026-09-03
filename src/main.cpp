@@ -6,7 +6,7 @@ using namespace geode::prelude;
 class $modify(AutoDecoEditorUI, EditorUI) {
 
     // =========================
-    // CREATE DECORATION OBJECT (STABLE MULTI-LAYER FACTORY)
+    // CREATE DECORATION OBJECT (STABLE & BULLETPROOF)
     // =========================
     GameObject* make(
         int id,
@@ -80,49 +80,33 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         float s = source->getScale();
         if (s <= 0.0f) s = 1.0f;
 
-        // FIXED: Center coordinates directly over your targeted source layout element!
+        // Spawns perfectly directly on top of your selected block (no weird offset shooting right!)
         float x = p.x;
         float y = p.y;
 
-        // Channel 1 = Main Shading Layer (Dark Purple in your Level Options Menu)
-        // Channel 2 = Accent Shading Layer (Neon Violet/Cyan in your Level Options Menu)
+        // Channel 1 = Main Color (Set to Dark Purple in level settings!)
+        // Channel 2 = Detail Color (Set to Neon Purple/Cyan in level settings!)
 
-        // 1. Background Fill Layer (ID 210 - Solid Square backing element)
-        auto bgFill = make(210, CCPoint(x, y), s * 1.0f, 1, 1);
-        
+        // 1. Background Fill Layer (ID 210 - Solid Square behind everything)
+        make(210, CCPoint(x, y), s * 1.0f, 1, 1);
+
         // 2. Tech Grid Texture Overlay (ID 1006)
-        auto gridTech = make(1006, CCPoint(x, y), s * 0.95f, 2, 1);
+        make(1006, CCPoint(x, y), s * 0.95f, 2, 1);
 
         // 3. 3D Volumetric Depth Frame (ID 239 - Spatial Shadowing Offset)
-        auto depthFrame = make(239, CCPoint(x + 6.0f * s, y - 6.0f * s), s * 1.0f, 1, 1);
+        make(239, CCPoint(x + 6.0f * s, y - 6.0f * s), s * 1.0f, 1, 1);
 
         // 4. Main Front Outline Frame (ID 239)
-        auto frontFrame = make(239, CCPoint(x, y), s * 1.0f, 2, 2);
+        make(239, CCPoint(x, y), s * 1.0f, 2, 2);
 
         // 5. Heavy Outer Edge Glow Elements (ID 211)
-        auto glowL = make(211, CCPoint(x - 15.0f * s, y), s * 1.0f, 2, 2, 90);  // Left Boundary
-        auto glowR = make(211, CCPoint(x + 15.0f * s, y), s * 1.0f, 2, 2, 270); // Right Boundary
-        auto glowT = make(211, CCPoint(x, y + 15.0f * s), s * 1.0f, 2, 2, 180); // Upper Boundary
-        auto glowB = make(211, CCPoint(x, y - 15.0f * s), s * 1.0f, 2, 2, 0);   // Lower Boundary
+        make(211, CCPoint(x - 15.0f * s, y), s * 1.0f, 2, 2, 90);  // Left Boundary
+        make(211, CCPoint(x + 15.0f * s, y), s * 1.0f, 2, 2, 270); // Right Boundary
+        make(211, CCPoint(x, y + 15.0f * s), s * 1.0f, 2, 2, 180); // Upper Boundary
+        make(211, CCPoint(x, y - 15.0f * s), s * 1.0f, 2, 2, 0);   // Lower Boundary
 
         // 6. Cyber Core Center Vertex (ID 1825 - Focal Crosshair node)
-        auto coreCross = make(1825, CCPoint(x, y), s * 0.40f, 2, 2);
-
-        // NATIVE Z-ORDER SORTING EXTRACTION:
-        // Automatically fetch the parent collection order and sort layers seamlessly!
-        if (auto parentLayer = this->m_editorLayer->m_objectsLayer) {
-            int baseZ = source->getZOrder();
-            
-            if (bgFill)     parentLayer->reorderChild(bgFill, baseZ - 5);
-            if (gridTech)   parentLayer->reorderChild(gridTech, baseZ - 3);
-            if (depthFrame) parentLayer->reorderChild(depthFrame, baseZ - 2);
-            if (frontFrame) parentLayer->reorderChild(frontFrame, baseZ + 1);
-            if (glowL)      parentLayer->reorderChild(glowL, baseZ + 2);
-            if (glowR)      parentLayer->reorderChild(glowR, baseZ + 2);
-            if (glowT)      parentLayer->reorderChild(glowT, baseZ + 2);
-            if (glowB)      parentLayer->reorderChild(glowB, baseZ + 2);
-            if (coreCross)  parentLayer->reorderChild(coreCross, baseZ + 3);
-        }
+        make(1825, CCPoint(x, y), s * 0.40f, 2, 2);
     }
 
     // =========================
