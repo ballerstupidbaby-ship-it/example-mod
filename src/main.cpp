@@ -7,7 +7,7 @@ using namespace geode::prelude;
 class $modify(AutoDecoEditorUI, EditorUI) {
 
     // =========================
-    // CREATE DECORATION OBJECT (LASER BLENDING MODE)
+    // CREATE DECORATION OBJECT (STABLE EXTRA COMPILER FIXED)
     // =========================
     GameObject* make(
         int id,
@@ -18,7 +18,7 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         ZLayer layerGroup,
         int zOrderOffset,
         float rotation = 0.0f,
-        bool useBlending = false // Gives objects that neon laser glow look
+        bool useBlending = false // True gives items that bright glowing neon overlay look
     ) {
         auto obj = this->m_editorLayer->createObject(id, pos, false);
         if (!obj) return nullptr;
@@ -26,16 +26,20 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         obj->setScale(scale);
         obj->setRotation(rotation);
 
-        if (obj->m_baseColor) obj->m_baseColor->m_colorID = baseChannel;
-        if (obj->m_detailColor) obj->m_detailColor->m_colorID = detailChannel;
+        // Safe Geode color channel assignment parameters
+        if (obj->m_baseColor) {
+            obj->m_baseColor->m_colorID = baseChannel;
+            if (useBlending) {
+                // Safely configures additive blending via public property flags
+                obj->m_baseColor->m_blending = true;
+            }
+        }
+        if (obj->m_detailColor) {
+            obj->m_detailColor->m_colorID = detailChannel;
+        }
 
         obj->m_zLayer = layerGroup;
         obj->m_zOrder = zOrderOffset;
-
-        // Force blending to make neon elements semi-transparent and vibrant
-        if (useBlending && obj->m_baseColor) {
-            obj->m_baseColor->m_blending = true;
-        }
 
         return obj;
     }
@@ -104,10 +108,10 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             }
 
             // --------------------------------------------------
-            // FIXED CYBER TECH WIREFRAME COMPOSITION
+            // CYBER TECH HOLLOW WIREFRAME COMPOSITION
             // --------------------------------------------------
             
-            // 1. Core Background Base Fill (Swapped to a thin grid plate instead of a massive chunk)
+            // 1. Core Background Base Fill (A thin grid layout plate instead of a massive solid brick)
             make(1006, CCPoint(x, y), s * 0.95f, 1, 1, ZLayer::B2, 1);
 
             // 2. Interior Tech Core Matrix (Only spawns inside full solid segments)
