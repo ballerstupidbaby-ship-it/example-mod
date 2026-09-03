@@ -6,7 +6,7 @@ using namespace geode::prelude;
 class $modify(AutoDecoEditorUI, EditorUI) {
 
     // =========================
-    // CREATE DECORATION OBJECT (FIXED Z-ORDER & RENDER)
+    // CREATE DECORATION OBJECT (STABLE MULTI-LAYER FACTORY)
     // =========================
     GameObject* make(
         int id,
@@ -14,7 +14,6 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         float scale,
         int baseChannel,    // Color channel ID (e.g. 1)
         int detailChannel,  // Color channel ID (e.g. 2)
-        int zOrder,         // Force exact layer stacking order
         float rotation = 0.0f
     ) {
         auto obj = this->m_editorLayer->createObject(id, pos, false);
@@ -32,12 +31,6 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         if (obj->m_detailColor) {
             obj->m_detailColor->m_colorID = detailChannel;
         }
-
-        // Force standard sprite engine initialization so colors render transparent accents
-        obj->setupCustomSprites();
-
-        // Put the object into the correct layering queue
-        this->m_editorLayer->m_objectsLayer->reorderChild(obj, zOrder);
 
         return obj;
     }
@@ -87,33 +80,49 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         float s = source->getScale();
         if (s <= 0.0f) s = 1.0f;
 
-        // FIXED: Changed offset to 0.0f so it spawns directly over the source block!
-        float x = p.x + (0.0f * s);
+        // FIXED: Center coordinates directly over your targeted source layout element!
+        float x = p.x;
         float y = p.y;
 
-        // Layer Ordering Map: 
-        // Background = Lower Z (-10) -> Details = Medium Z (0) -> Frames = High Z (10)
+        // Channel 1 = Main Shading Layer (Dark Purple in your Level Options Menu)
+        // Channel 2 = Accent Shading Layer (Neon Violet/Cyan in your Level Options Menu)
 
-        // 1. Background Fill Layer (ID 210 - Solid Square behind everything)
-        make(210, CCPoint(x, y), s * 1.0f, 1, 1, -10);
+        // 1. Background Fill Layer (ID 210 - Solid Square backing element)
+        auto bgFill = make(210, CCPoint(x, y), s * 1.0f, 1, 1);
+        
+        // 2. Tech Grid Texture Overlay (ID 1006)
+        auto gridTech = make(1006, CCPoint(x, y), s * 0.95f, 2, 1);
 
-        // 2. Tech Grid Texture (ID 1006)
-        make(1006, CCPoint(x, y), s * 0.95f, 2, 1, -5);
+        // 3. 3D Volumetric Depth Frame (ID 239 - Spatial Shadowing Offset)
+        auto depthFrame = make(239, CCPoint(x + 6.0f * s, y - 6.0f * s), s * 1.0f, 1, 1);
 
-        // 3. 3D Volumetric Depth Frame (ID 239 - Shifted Depth)
-        make(239, CCPoint(x + 6.0f * s, y - 6.0f * s), s * 1.0f, 1, 1, -2);
+        // 4. Main Front Outline Frame (ID 239)
+        auto frontFrame = make(239, CCPoint(x, y), s * 1.0f, 2, 2);
 
-        // 4. Main Front Outline Frame (ID 239 - Front Frame)
-        make(239, CCPoint(x, y), s * 1.0f, 2, 2, 5);
+        // 5. Heavy Outer Edge Glow Elements (ID 211)
+        auto glowL = make(211, CCPoint(x - 15.0f * s, y), s * 1.0f, 2, 2, 90);  // Left Boundary
+        auto glowR = make(211, CCPoint(x + 15.0f * s, y), s * 1.0f, 2, 2, 270); // Right Boundary
+        auto glowT = make(211, CCPoint(x, y + 15.0f * s), s * 1.0f, 2, 2, 180); // Upper Boundary
+        auto glowB = make(211, CCPoint(x, y - 15.0f * s), s * 1.0f, 2, 2, 0);   // Lower Boundary
 
-        // 5. Heavy Outer Edge Glow (ID 211)
-        make(211, CCPoint(x - 15.0f * s, y), s * 1.0f, 2, 2, 8, 90);  // Left Edge
-        make(211, CCPoint(x + 15.0f * s, y), s * 1.0f, 2, 2, 8, 270); // Right Edge
-        make(211, CCPoint(x, y + 15.0f * s), s * 1.0f, 2, 2, 8, 180); // Top Edge
-        make(211, CCPoint(x, y - 15.0f * s), s * 1.0f, 2, 2, 8, 0);   // Bottom Edge
+        // 6. Cyber Core Center Vertex (ID 1825 - Focal Crosshair node)
+        auto coreCross = make(1825, CCPoint(x, y), s * 0.40f, 2, 2);
 
-        // 6. Cyber Core Center (ID 1825 - Crosshair node on top)
-        make(1825, CCPoint(x, y), s * 0.40f, 2, 2, 10);
+        // NATIVE Z-ORDER SORTING EXTRACTION:
+        // Automatically fetch the parent collection order and sort layers seamlessly!
+        if (auto parentLayer = this->m_editorLayer->m_objectsLayer) {
+            int baseZ = source->getZOrder();
+            
+            if (bgFill)     parentLayer->reorderChild(bgFill, baseZ - 5);
+            if (gridTech)   parentLayer->reorderChild(gridTech, baseZ - 3);
+            if (depthFrame) parentLayer->reorderChild(depthFrame, baseZ - 2);
+            if (frontFrame) parentLayer->reorderChild(frontFrame, baseZ + 1);
+            if (glowL)      parentLayer->reorderChild(glowL, baseZ + 2);
+            if (glowR)      parentLayer->reorderChild(glowR, baseZ + 2);
+            if (glowT)      parentLayer->reorderChild(glowT, baseZ + 2);
+            if (glowB)      parentLayer->reorderChild(glowB, baseZ + 2);
+            if (coreCross)  parentLayer->reorderChild(coreCross, baseZ + 3);
+        }
     }
 
     // =========================
