@@ -5,126 +5,76 @@ using namespace geode::prelude;
 
 class $modify(AutoDecoEditorUI, EditorUI) {
 
-    // ============================================================
-    // CYBERPUNK / FUTURISTIC TEMPLATE
-    // ============================================================
-
-    // Colored square pieces
-    static constexpr int BLOCK = 207;
-    static constexpr int TOP = 208;
-    static constexpr int OUTER = 209;
-    static constexpr int INNER = 210;
-    static constexpr int PILLAR_TOP = 212;
-    static constexpr int PILLAR = 213;
-
-    // Hexagon pieces
-    static constexpr int HEX = 229;
-    static constexpr int HEX_CORNER = 230;
-    static constexpr int SMALL_HEX = 231;
-    static constexpr int SMALL_HEX_CORNER = 232;
-
-    // Pipes
-    static constexpr int PIPE = 237;
-
-    // 3DL pieces
-    static constexpr int THREE_DL_TOP_LEFT = 506;
-    static constexpr int THREE_DL_TOP_MIDDLE = 507;
-    static constexpr int THREE_DL_HALF_TOP = 508;
-    static constexpr int THREE_DL_TOP_RIGHT = 509;
-    static constexpr int THREE_DL_INNER = 510;
-    static constexpr int THREE_DL_OUTER = 511;
-
-    // Grid 3DL
-    static constexpr int GRID_3DL_LEFT = 515;
-    static constexpr int GRID_3DL_MIDDLE = 516;
-    static constexpr int GRID_3DL_RIGHT = 518;
-
-    // Beveled 3DL
-    static constexpr int BEVEL_LEFT = 524;
-    static constexpr int BEVEL_MIDDLE = 525;
-    static constexpr int BEVEL_RIGHT = 527;
-
-    // Neon outline
-    static constexpr int NEON_TOP = 1191;
-    static constexpr int NEON_OUTER = 1192;
-    static constexpr int NEON_PILLAR_TOP = 1193;
-    static constexpr int NEON_INNER = 1194;
-    static constexpr int NEON_CENTER = 1195;
-    static constexpr int NEON_SQUARE = 1196;
-    static constexpr int NEON_PILLAR = 1197;
-
-    // Thick outline
-    static constexpr int THICK_TOP = 1202;
-    static constexpr int THICK_OUTER = 1203;
-    static constexpr int THICK_INNER = 1205;
-    static constexpr int THICK_SMALL = 1208;
-    static constexpr int THICK_PILLAR = 1209;
-    static constexpr int THICK_SQUARE = 1210;
-
-    // ============================================================
+    // =========================================================
     // COLORS
-    // ============================================================
+    // =========================================================
 
-    ccColor3B cyan() {
-        return {0, 240, 255};
+    ccColor3B dark() {
+        return {8, 5, 15};
     }
 
-    ccColor3B cyanBright() {
-        return {170, 255, 255};
-    }
-
-    ccColor3B cyanDark() {
-        return {0, 110, 140};
-    }
-
-    ccColor3B darkMetal() {
-        return {10, 15, 25};
-    }
-
-    ccColor3B deepPurple() {
-        return {65, 0, 100};
+    ccColor3B darkPurple() {
+        return {35, 5, 55};
     }
 
     ccColor3B purple() {
-        return {175, 0, 255};
+        return {150, 0, 255};
     }
 
-    ccColor3B magenta() {
-        return {255, 0, 190};
+    ccColor3B neonPurple() {
+        return {235, 30, 255};
     }
 
-    // ============================================================
-    // OBJECT CREATOR
-    // ============================================================
+    ccColor3B pink() {
+        return {255, 40, 190};
+    }
+
+    ccColor3B cyan() {
+        return {0, 220, 255};
+    }
+
+    ccColor3B bright() {
+        return {210, 255, 255};
+    }
+
+    // =========================================================
+    // CREATE OBJECT
+    // =========================================================
 
     GameObject* make(
         int id,
-        CCPoint pos,
+        CCPoint position,
         float scale,
         ccColor3B color,
-        GLubyte opacity = 255,
-        float rotation = 0.0f
+        float rotation = 0.0f,
+        GLubyte opacity = 255
     ) {
-        auto obj = this->m_editorLayer->createObject(
+
+        auto object = this->m_editorLayer->createObject(
             id,
-            pos,
+            position,
             false
         );
 
-        if (!obj)
+        if (!object)
             return nullptr;
 
-        obj->setScale(scale);
-        obj->setChildColor(color);
-        obj->setOpacity(opacity);
-        obj->setRotation(rotation);
+        object->setScale(scale);
 
-        return obj;
+        // IMPORTANT:
+        // Set BOTH colors.
+        object->setColor(color);
+        object->setChildColor(color);
+
+        object->setRotation(rotation);
+        object->setOpacity(opacity);
+
+        return object;
     }
 
-    // ============================================================
+    // =========================================================
     // BUTTON
-    // ============================================================
+    // =========================================================
 
     bool init(LevelEditorLayer* editorLayer) {
 
@@ -158,483 +108,463 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         return true;
     }
 
-    // ============================================================
-    // 3D BACK DEPTH
-    // ============================================================
+    // =========================================================
+    // 3D SHADOW
+    // =========================================================
 
-    void createDepth(GameObject* source) {
+    void addDepth(CCPoint p, float s) {
 
-        auto p = source->getPosition();
-        float s = source->getScale();
+        // Offset layers create the fake extrusion.
 
-        for (int i = 8; i >= 1; i--) {
-
-            float x = p.x + i * 3.0f;
-            float y = p.y - i * 2.0f;
-
-            ccColor3B c;
-
-            if (i >= 7)
-                c = deepPurple();
-            else if (i >= 5)
-                c = darkMetal();
-            else if (i >= 3)
-                c = cyanDark();
-            else
-                c = cyan();
-
-            make(
-                THREE_DL_TOP_MIDDLE,
-                CCPoint(x, y),
-                s * 0.85f,
-                c,
-                static_cast<GLubyte>(110 + i * 15)
-            );
-        }
-    }
-
-    // ============================================================
-    // MAIN TECH FRAME
-    // ============================================================
-
-    void createMainFrame(GameObject* source) {
-
-        auto p = source->getPosition();
-        float s = source->getScale();
-
-        // dark body
         make(
-            BLOCK,
-            CCPoint(p.x + 1, p.y + 1),
-            s * 1.15f,
-            darkMetal()
-        );
-
-        // top neon rail
-        make(
-            NEON_TOP,
-            CCPoint(p.x, p.y + 10),
-            s * 0.90f,
-            cyanBright(),
-            255
-        );
-
-        // bottom rail
-        make(
-            NEON_TOP,
-            CCPoint(p.x + 2, p.y - 10),
-            s * 0.82f,
-            cyanDark(),
-            230,
+            207,
+            CCPoint(p.x + 18, p.y - 12),
+            s * 1.20f,
+            dark(),
+            0,
             180
         );
 
-        // left frame
         make(
-            NEON_PILLAR,
-            CCPoint(p.x - 10, p.y),
-            s * 0.90f,
-            cyan(),
-            245,
-            90
+            207,
+            CCPoint(p.x + 14, p.y - 9),
+            s * 1.18f,
+            darkPurple(),
+            0,
+            180
         );
 
-        // right frame
         make(
-            NEON_PILLAR,
-            CCPoint(p.x + 11, p.y),
-            s * 0.90f,
-            cyan(),
-            245,
-            90
-        );
-    }
-
-    // ============================================================
-    // L-SHAPED ARCHITECTURE
-    // ============================================================
-
-    void createLShapes(GameObject* source) {
-
-        auto p = source->getPosition();
-        float s = source->getScale();
-
-        // upper left
-        make(
-            NEON_OUTER,
-            CCPoint(p.x - 13, p.y + 13),
-            s * 0.75f,
-            cyan(),
-            245,
-            0
-        );
-
-        // lower left
-        make(
-            NEON_INNER,
-            CCPoint(p.x - 13, p.y - 13),
-            s * 0.75f,
+            207,
+            CCPoint(p.x + 10, p.y - 6),
+            s * 1.16f,
             purple(),
-            235,
-            0
-        );
-
-        // upper right
-        make(
-            NEON_OUTER,
-            CCPoint(p.x + 13, p.y + 13),
-            s * 0.75f,
-            cyanBright(),
-            240,
-            90
-        );
-
-        // lower right
-        make(
-            NEON_INNER,
-            CCPoint(p.x + 13, p.y - 13),
-            s * 0.75f,
-            magenta(),
-            235,
-            90
+            0,
+            200
         );
     }
 
-    // ============================================================
-    // INNER NESTED FRAMES
-    // ============================================================
+    // =========================================================
+    // BIG OUTER FRAME
+    // =========================================================
 
-    void createNestedFrames(GameObject* source) {
+    void addOuterFrame(CCPoint p, float s) {
 
-        auto p = source->getPosition();
-        float s = source->getScale();
+        // top-left corner
+        make(
+            506,
+            CCPoint(p.x + 25, p.y + 25),
+            s * 0.90f,
+            neonPurple(),
+            0
+        );
+
+        // top
+        make(
+            507,
+            CCPoint(p.x + 45, p.y + 25),
+            s * 0.90f,
+            neonPurple(),
+            0
+        );
+
+        // top-right
+        make(
+            509,
+            CCPoint(p.x + 65, p.y + 25),
+            s * 0.90f,
+            pink(),
+            0
+        );
+
+        // right side
+        make(
+            511,
+            CCPoint(p.x + 65, p.y + 5),
+            s * 0.90f,
+            purple(),
+            90
+        );
+
+        // lower-right
+        make(
+            510,
+            CCPoint(p.x + 65, p.y - 15),
+            s * 0.90f,
+            purple(),
+            90
+        );
+
+        // bottom
+        make(
+            508,
+            CCPoint(p.x + 45, p.y - 15),
+            s * 0.90f,
+            darkPurple(),
+            180
+        );
+
+        // left side
+        make(
+            506,
+            CCPoint(p.x + 25, p.y + 5),
+            s * 0.90f,
+            neonPurple(),
+            270
+        );
+    }
+
+    // =========================================================
+    // NESTED INNER FRAME
+    // =========================================================
+
+    void addInnerFrame(CCPoint p, float s) {
+
+        // dark inner panel
+        make(
+            207,
+            CCPoint(p.x + 45, p.y + 5),
+            s * 0.95f,
+            dark(),
+            0
+        );
+
+        // inner 3D frame
+        make(
+            524,
+            CCPoint(p.x + 32, p.y + 18),
+            s * 0.65f,
+            purple()
+        );
 
         make(
-            THICK_SQUARE,
-            CCPoint(p.x - 4, p.y + 4),
+            525,
+            CCPoint(p.x + 45, p.y + 18),
+            s * 0.65f,
+            neonPurple()
+        );
+
+        make(
+            527,
+            CCPoint(p.x + 58, p.y + 18),
+            s * 0.65f,
+            pink()
+        );
+
+        make(
+            529,
+            CCPoint(p.x + 58, p.y + 3),
+            s * 0.65f,
+            purple(),
+            90
+        );
+
+        make(
+            528,
+            CCPoint(p.x + 32, p.y + 3),
+            s * 0.65f,
+            cyan(),
+            270
+        );
+    }
+
+    // =========================================================
+    // MECHANICAL CENTER
+    // =========================================================
+
+    void addCenter(CCPoint p, float s) {
+
+        // Large mechanical center
+        make(
+            263,
+            CCPoint(p.x + 45, p.y + 5),
             s * 0.72f,
-            cyanDark(),
-            230
+            darkPurple()
         );
 
+        // inner colored square
         make(
-            THICK_INNER,
-            CCPoint(p.x + 5, p.y + 5),
-            s * 0.58f,
-            cyan(),
-            230
+            266,
+            CCPoint(p.x + 45, p.y + 5),
+            s * 0.52f,
+            purple()
         );
 
+        // small center
         make(
-            NEON_CENTER,
-            CCPoint(p.x + 7, p.y + 6),
-            s * 0.32f,
-            magenta(),
-            245
+            220,
+            CCPoint(p.x + 45, p.y + 5),
+            s * 0.23f,
+            cyan()
         );
 
+        // bright center highlight
         make(
-            THICK_SMALL,
-            CCPoint(p.x + 7, p.y + 6),
-            s * 0.17f,
-            cyanBright(),
-            255
+            220,
+            CCPoint(p.x + 45, p.y + 5),
+            s * 0.11f,
+            bright()
         );
     }
 
-    // ============================================================
-    // HEXAGON TECH DETAILS
-    // ============================================================
+    // =========================================================
+    // SIDE TECH PANELS
+    // =========================================================
 
-    void createHexDetails(GameObject* source) {
+    void addSidePanels(CCPoint p, float s) {
 
-        auto p = source->getPosition();
-        float s = source->getScale();
-
+        // upper-left panel
         make(
-            HEX,
-            CCPoint(p.x - 17, p.y + 7),
-            s * 0.55f,
-            cyan(),
-            210
-        );
-
-        make(
-            SMALL_HEX,
-            CCPoint(p.x + 18, p.y + 8),
-            s * 0.40f,
-            magenta(),
-            220
-        );
-
-        make(
-            HEX_CORNER,
-            CCPoint(p.x + 18, p.y - 8),
+            209,
+            CCPoint(p.x + 20, p.y + 35),
             s * 0.42f,
-            purple(),
+            purple()
+        );
+
+        make(
             210,
+            CCPoint(p.x + 20, p.y + 35),
+            s * 0.27f,
+            cyan()
+        );
+
+        // upper-right panel
+        make(
+            209,
+            CCPoint(p.x + 70, p.y + 35),
+            s * 0.42f,
+            pink()
+        );
+
+        make(
+            210,
+            CCPoint(p.x + 70, p.y + 35),
+            s * 0.27f,
+            purple()
+        );
+
+        // lower-left panel
+        make(
+            209,
+            CCPoint(p.x + 20, p.y - 25),
+            s * 0.42f,
+            darkPurple()
+        );
+
+        make(
+            210,
+            CCPoint(p.x + 20, p.y - 25),
+            s * 0.27f,
+            purple()
+        );
+
+        // lower-right panel
+        make(
+            209,
+            CCPoint(p.x + 70, p.y - 25),
+            s * 0.42f,
+            purple()
+        );
+
+        make(
+            210,
+            CCPoint(p.x + 70, p.y - 25),
+            s * 0.27f,
+            cyan()
+        );
+    }
+
+    // =========================================================
+    // HEXAGON DETAILS
+    // =========================================================
+
+    void addHexagons(CCPoint p, float s) {
+
+        make(
+            229,
+            CCPoint(p.x + 15, p.y + 5),
+            s * 0.42f,
+            cyan(),
+            0,
+            190
+        );
+
+        make(
+            231,
+            CCPoint(p.x + 76, p.y + 5),
+            s * 0.35f,
+            pink(),
+            0,
             90
         );
 
         make(
-            SMALL_HEX_CORNER,
-            CCPoint(p.x - 17, p.y - 9),
-            s * 0.36f,
-            cyanBright(),
-            200,
+            230,
+            CCPoint(p.x + 20, p.y - 22),
+            s * 0.32f,
+            purple(),
+            45
+        );
+
+        make(
+            232,
+            CCPoint(p.x + 72, p.y + 31),
+            s * 0.28f,
+            cyan(),
             45
         );
     }
 
-    // ============================================================
-    // 3DL CORNERS / DEPTH EDGES
-    // ============================================================
+    // =========================================================
+    // LITTLE TECH NODES
+    // =========================================================
 
-    void create3DFrame(GameObject* source) {
-
-        auto p = source->getPosition();
-        float s = source->getScale();
+    void addNodes(CCPoint p, float s) {
 
         make(
-            THREE_DL_TOP_LEFT,
-            CCPoint(p.x - 12, p.y + 12),
-            s * 0.75f,
-            cyanBright(),
-            235
+            220,
+            CCPoint(p.x + 30, p.y + 29),
+            s * 0.16f,
+            bright()
         );
 
         make(
-            THREE_DL_TOP_MIDDLE,
-            CCPoint(p.x, p.y + 14),
-            s * 0.78f,
-            cyan(),
+            220,
+            CCPoint(p.x + 60, p.y + 29),
+            s * 0.16f,
+            cyan()
+        );
+
+        make(
+            220,
+            CCPoint(p.x + 30, p.y - 19),
+            s * 0.16f,
+            pink()
+        );
+
+        make(
+            220,
+            CCPoint(p.x + 60, p.y - 19),
+            s * 0.16f,
+            purple()
+        );
+    }
+
+    // =========================================================
+    // ANGLED HIGHLIGHTS
+    // =========================================================
+
+    void addHighlights(CCPoint p, float s) {
+
+        make(
+            227,
+            CCPoint(p.x + 28, p.y + 28),
+            s * 0.28f,
+            bright(),
+            45,
             230
         );
 
         make(
-            THREE_DL_TOP_RIGHT,
-            CCPoint(p.x + 12, p.y + 12),
-            s * 0.75f,
+            227,
+            CCPoint(p.x + 62, p.y + 28),
+            s * 0.28f,
             cyan(),
-            235
+            45,
+            230
         );
 
         make(
-            THREE_DL_OUTER,
-            CCPoint(p.x + 15, p.y - 7),
-            s * 0.70f,
-            purple(),
-            210
-        );
-
-        make(
-            THREE_DL_INNER,
-            CCPoint(p.x - 14, p.y - 7),
-            s * 0.70f,
-            cyanDark(),
-            210
+            228,
+            CCPoint(p.x + 62, p.y - 18),
+            s * 0.24f,
+            pink(),
+            45,
+            230
         );
     }
 
-    // ============================================================
-    // GRID / CIRCUIT DETAILS
-    // ============================================================
+    // =========================================================
+    // SMALL PIPE CONNECTIONS
+    // =========================================================
 
-    void createGrid(GameObject* source) {
-
-        auto p = source->getPosition();
-        float s = source->getScale();
-
-        for (int i = -2; i <= 2; i++) {
-
-            make(
-                GRID_3DL_MIDDLE,
-                CCPoint(
-                    p.x + i * 5.0f,
-                    p.y + 18
-                ),
-                s * 0.25f,
-                cyanDark(),
-                175
-            );
-        }
-
-        for (int i = -2; i <= 2; i++) {
-
-            make(
-                GRID_3DL_MIDDLE,
-                CCPoint(
-                    p.x + 18,
-                    p.y + i * 5.0f
-                ),
-                s * 0.23f,
-                purple(),
-                160,
-                90
-            );
-        }
-    }
-
-    // ============================================================
-    // MECHANICAL CORNERS
-    // ============================================================
-
-    void createMechanical(GameObject* source) {
-
-        auto p = source->getPosition();
-        float s = source->getScale();
+    void addPipes(CCPoint p, float s) {
 
         make(
-            PILLAR_TOP,
-            CCPoint(p.x - 20, p.y + 15),
-            s * 0.35f,
-            cyan(),
-            220
-        );
-
-        make(
-            PILLAR,
-            CCPoint(p.x + 20, p.y + 15),
-            s * 0.35f,
-            magenta(),
-            220
-        );
-
-        make(
-            PILLAR,
-            CCPoint(p.x - 20, p.y - 15),
-            s * 0.30f,
-            purple(),
-            210
-        );
-
-        make(
-            PILLAR,
-            CCPoint(p.x + 20, p.y - 15),
+            237,
+            CCPoint(p.x + 12, p.y + 20),
             s * 0.30f,
             cyan(),
-            210
+            0,
+            90
+        );
+
+        make(
+            237,
+            CCPoint(p.x + 78, p.y + 20),
+            s * 0.30f,
+            pink(),
+            0,
+            90
+        );
+
+        make(
+            238,
+            CCPoint(p.x + 13, p.y - 15),
+            s * 0.30f,
+            purple()
+        );
+
+        make(
+            238,
+            CCPoint(p.x + 77, p.y - 15),
+            s * 0.30f,
+            cyan()
         );
     }
 
-    // ============================================================
-    // SIDE PANELS
-    // ============================================================
-
-    void createSidePanels(GameObject* source) {
-
-        auto p = source->getPosition();
-        float s = source->getScale();
-
-        // left panel
-        make(
-            BLOCK,
-            CCPoint(p.x - 27, p.y + 2),
-            s * 0.55f,
-            darkMetal(),
-            235
-        );
-
-        make(
-            THICK_TOP,
-            CCPoint(p.x - 27, p.y + 7),
-            s * 0.42f,
-            magenta(),
-            225
-        );
-
-        // right panel
-        make(
-            BLOCK,
-            CCPoint(p.x + 27, p.y - 2),
-            s * 0.55f,
-            darkMetal(),
-            235
-        );
-
-        make(
-            THICK_TOP,
-            CCPoint(p.x + 27, p.y + 3),
-            s * 0.42f,
-            cyan(),
-            225
-        );
-    }
-
-    // ============================================================
-    // FLOATING NODES
-    // ============================================================
-
-    void createNodes(GameObject* source) {
-
-        auto p = source->getPosition();
-        float s = source->getScale();
-
-        make(
-            NEON_CENTER,
-            CCPoint(p.x - 30, p.y + 22),
-            s * 0.25f,
-            cyanBright(),
-            230
-        );
-
-        make(
-            NEON_CENTER,
-            CCPoint(p.x + 30, p.y + 22),
-            s * 0.25f,
-            magenta(),
-            230
-        );
-
-        make(
-            SMALL_HEX,
-            CCPoint(p.x - 29, p.y - 21),
-            s * 0.22f,
-            purple(),
-            210
-        );
-
-        make(
-            SMALL_HEX,
-            CCPoint(p.x + 30, p.y - 21),
-            s * 0.22f,
-            cyan(),
-            210
-        );
-    }
-
-    // ============================================================
-    // FULL TEMPLATE
-    // ============================================================
+    // =========================================================
+    // FULL DECORATION
+    // =========================================================
 
     void decorate(GameObject* source) {
 
         if (!source)
             return;
 
-        createDepth(source);
-        createMainFrame(source);
-        createLShapes(source);
-        createNestedFrames(source);
-        createHexDetails(source);
-        create3DFrame(source);
-        createGrid(source);
-        createMechanical(source);
-        createSidePanels(source);
-        createNodes(source);
+        auto p = source->getPosition();
+        float s = source->getScale();
+
+        if (s <= 0.0f)
+            s = 1.0f;
+
+        // Everything is shifted RIGHT of the selected block.
+
+        CCPoint base(
+            p.x + 30.0f,
+            p.y
+        );
+
+        addDepth(base, s);
+        addOuterFrame(base, s);
+        addInnerFrame(base, s);
+        addCenter(base, s);
+        addSidePanels(base, s);
+        addHexagons(base, s);
+        addNodes(base, s);
+        addHighlights(base, s);
+        addPipes(base, s);
     }
 
-    // ============================================================
-    // BUTTON ACTION
-    // ============================================================
+    // =========================================================
+    // AUTO DECO
+    // =========================================================
 
     void onAutoDeco(CCObject*) {
 
         auto selected = this->m_selectedObjects;
 
-        int count = selected ? selected->count() : 0;
-
-        if (count == 0) {
+        if (!selected || selected->count() == 0) {
 
             FLAlertLayer::create(
                 "AUTO DECO",
@@ -645,35 +575,30 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             return;
         }
 
-        // Each block creates many objects.
-        // Keep this reasonable for mobile.
-        if (count > 20) {
+        if (selected->count() > 15) {
 
             FLAlertLayer::create(
                 "AUTO DECO",
-                "Select 20 or fewer blocks at once.",
+                "Select 15 or fewer blocks at once.",
                 "OK"
             )->show();
 
             return;
         }
 
-        for (int i = 0; i < count; i++) {
+        for (int i = 0; i < selected->count(); i++) {
 
-            auto object = static_cast<GameObject*>(
+            auto block = static_cast<GameObject*>(
                 selected->objectAtIndex(i)
             );
 
-            if (!object)
-                continue;
-
-            decorate(object);
+            decorate(block);
         }
 
         auto message = fmt::format(
-            "Cyberpunk template applied to {} block{}!",
-            count,
-            count == 1 ? "" : "s"
+            "Applied futuristic 3D deco to {} block{}!",
+            selected->count(),
+            selected->count() == 1 ? "" : "s"
         );
 
         FLAlertLayer::create(
