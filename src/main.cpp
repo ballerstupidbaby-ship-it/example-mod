@@ -6,7 +6,7 @@ using namespace geode::prelude;
 class $modify(AutoDecoEditorUI, EditorUI) {
 
     // =========================
-    // CREATE DECORATION OBJECT (FIXED GEODE BINDINGS)
+    // CREATE DECORATION OBJECT (STABLE COLOR SETUP)
     // =========================
     GameObject* make(
         int id,
@@ -24,12 +24,13 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         obj->setScale(scale);
         obj->setRotation(rotation);
 
-        // Geode 2.2 uses these direct member variables for color channel IDs
-        obj->m_baseColorID = baseChannel;
-        obj->m_detailColorID = detailChannel;
-
-        // Correct Geode method to force the object to update its color visuals
-        obj->updateColor();
+        // Safe Geode Color Channel Assignment via internal color action pointers
+        if (obj->m_baseColorAction) {
+            obj->m_baseColorAction->m_colorID = baseChannel;
+        }
+        if (obj->m_detailColorAction) {
+            obj->m_detailColorAction->m_colorID = detailChannel;
+        }
 
         return obj;
     }
