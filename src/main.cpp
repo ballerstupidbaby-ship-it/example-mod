@@ -6,14 +6,14 @@ using namespace geode::prelude;
 class $modify(AutoDecoEditorUI, EditorUI) {
 
     // =========================
-    // CREATE DECORATION OBJECT (STABLE COLOR SETUP)
+    // CREATE DECORATION OBJECT (STABLE 2.2081 FIX)
     // =========================
     GameObject* make(
         int id,
         CCPoint pos,
         float scale,
-        int baseChannel,    // Standard color channel IDs (e.g., 1, 2)
-        int detailChannel,
+        int baseChannel,    // Color channel ID (e.g. 1)
+        int detailChannel,  // Color channel ID (e.g. 2)
         float rotation = 0.0f
     ) {
         auto obj = this->m_editorLayer->createObject(id, pos, false);
@@ -24,12 +24,12 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         obj->setScale(scale);
         obj->setRotation(rotation);
 
-        // Safe Geode Color Channel Assignment via internal color action pointers
-        if (obj->m_baseColorAction) {
-            obj->m_baseColorAction->m_colorID = baseChannel;
+        // Uses 2.2081 stable pointers to map color choices safely
+        if (obj->m_baseColorCode) {
+            obj->m_baseColorCode->m_colorID = baseChannel;
         }
-        if (obj->m_detailColorAction) {
-            obj->m_detailColorAction->m_colorID = detailChannel;
+        if (obj->m_detailColorCode) {
+            obj->m_detailColorCode->m_colorID = detailChannel;
         }
 
         return obj;
