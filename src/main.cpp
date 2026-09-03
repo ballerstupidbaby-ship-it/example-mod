@@ -6,7 +6,7 @@ using namespace geode::prelude;
 class $modify(AutoDecoEditorUI, EditorUI) {
 
     // =========================
-    // CREATE DECORATION OBJECT (STABLE MULTI-LAYER COMPILER FIX)
+    // CREATE DECORATION OBJECT (STABLE HARDWARE Z-LAYER SPLIT)
     // =========================
     GameObject* make(
         int id,
@@ -14,7 +14,8 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         float scale,
         int baseChannel,    // Color channel ID (e.g. 1)
         int detailChannel,  // Color channel ID (e.g. 2)
-        int customZOrder,   // Stacking level override
+        ZLayer layerGroup,  // Force onto background or foreground hardware layers
+        int zOrderOffset,   // Sub-sorting priority inside that layer
         float rotation = 0.0f
     ) {
         auto obj = this->m_editorLayer->createObject(id, pos, false);
@@ -33,8 +34,9 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             obj->m_detailColor->m_colorID = detailChannel;
         }
 
-        // Force native engine rendering layer stack properties
-        obj->m_zOrder = customZOrder;
+        // Hard-wire the object onto an explicit engine sorting layer (e.g., Background vs Foreground)
+        obj->m_zLayer = layerGroup;
+        obj->m_zOrder = zOrderOffset;
 
         return obj;
     }
@@ -87,29 +89,29 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         float x = p.x;
         float y = p.y;
 
-        // Custom Layer stack numbers: 
-        // Background Fill = 1 (lowest) -> Grids/Depth = 2 -> Frame = 3 -> Glow/Cross = 4 (highest)
+        // FIXED Z-LAYERS USED:
+        // ZLayer::B2 = Deep Background | ZLayer::B1 = Base Details | ZLayer::T1 = Top Decoration Front
 
-        // 1. Background Fill Layer (ID 210 - Solid Square behind everything)
-        make(210, CCPoint(x, y), s * 1.0f, 1, 1, 1);
+        // 1. Tech Base Block (ID 1005 - Natively designed for tech styling fills instead of solid bricks)
+        make(1005, CCPoint(x, y), s * 1.0f, 1, 1, ZLayer::B2, 1);
 
         // 2. Tech Grid Texture Overlay (ID 1006)
-        make(1006, CCPoint(x, y), s * 0.95f, 2, 1, 2);
+        make(1006, CCPoint(x, y), s * 0.95f, 2, 1, ZLayer::B1, 1);
 
         // 3. 3D Volumetric Depth Frame (ID 239 - Spatial Shadowing Offset)
-        make(239, CCPoint(x + 6.0f * s, y - 6.0f * s), s * 1.0f, 1, 1, 2);
+        make(239, CCPoint(x + 5.0f * s, y - 5.0f * s), s * 1.0f, 1, 1, ZLayer::B1, 2);
 
-        // 4. Main Front Outline Frame (ID 239)
-        make(239, CCPoint(x, y), s * 1.0f, 2, 2, 3);
+        // 4. Main Front Outline Frame (ID 239 - Forced straight to foreground)
+        make(239, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5);
 
-        // 5. Heavy Outer Edge Glow Elements (ID 211)
-        make(211, CCPoint(x - 15.0f * s, y), s * 1.0f, 2, 2, 4, 90);  // Left
-        make(211, CCPoint(x + 15.0f * s, y), s * 1.0f, 2, 2, 4, 270); // Right
-        make(211, CCPoint(x, y + 15.0f * s), s * 1.0f, 2, 2, 4, 180); // Top
-        make(211, CCPoint(x, y - 15.0f * s), s * 1.0f, 2, 2, 4, 0);   // Bottom
+        // 5. Heavy Outer Edge Glow Elements (ID 211 - Placed perfectly on top layer edge lines)
+        make(211, CCPoint(x - 15.0f * s, y), s * 1.0f, 2, 2, ZLayer::T1, 10, 90);  // Left
+        make(211, CCPoint(x + 15.0f * s, y), s * 1.0f, 2, 2, ZLayer::T1, 10, 270); // Right
+        make(211, CCPoint(x, y + 15.0f * s), s * 1.0f, 2, 2, ZLayer::T1, 10, 180); // Top
+        make(211, CCPoint(x, y - 15.0f * s), s * 1.0f, 2, 2, ZLayer::T1, 10, 0);   // Bottom
 
         // 6. Cyber Core Center Vertex (ID 1825 - Focal Crosshair node)
-        make(1825, CCPoint(x, y), s * 0.40f, 2, 2, 4);
+        make(1825, CCPoint(x, y), s * 0.45f, 2, 2, ZLayer::T1, 15);
     }
 
     // =========================
