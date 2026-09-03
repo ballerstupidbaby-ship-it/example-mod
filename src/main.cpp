@@ -6,13 +6,13 @@ using namespace geode::prelude;
 class $modify(AutoDecoEditorUI, EditorUI) {
 
     // =========================
-    // CREATE DECORATION OBJECT (FIXED)
+    // CREATE DECORATION OBJECT (FIXED GEODE BINDINGS)
     // =========================
     GameObject* make(
         int id,
         CCPoint pos,
         float scale,
-        int baseChannel,    // Use channel IDs (e.g., 1, 2) instead of raw RGB colors
+        int baseChannel,    // Standard color channel IDs (e.g., 1, 2)
         int detailChannel,
         float rotation = 0.0f
     ) {
@@ -24,12 +24,12 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         obj->setScale(scale);
         obj->setRotation(rotation);
 
-        // Tell the object to use standard editor color channels
-        obj->setBaseColorID(baseChannel);
-        obj->setDetailColorID(detailChannel);
+        // Geode 2.2 uses these direct member variables for color channel IDs
+        obj->m_baseColorID = baseChannel;
+        obj->m_detailColorID = detailChannel;
 
-        // Tell the game to refresh the object so it updates instantly
-        obj->updateObjectFormat();
+        // Correct Geode method to force the object to update its color visuals
+        obj->updateColor();
 
         return obj;
     }
@@ -93,7 +93,6 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         make(1006, CCPoint(x, y), s * 0.95f, 2, 1);
 
         // 3. 3D Volumetric Depth Frame (ID 239 - Solid Frame)
-        // Shifted down and right to look 3D
         make(239, CCPoint(x + 6.0f * s, y - 6.0f * s), s * 1.0f, 1, 1);
 
         // 4. Main Front Outline Frame (ID 239)
