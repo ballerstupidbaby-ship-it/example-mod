@@ -6,14 +6,15 @@ using namespace geode::prelude;
 class $modify(AutoDecoEditorUI, EditorUI) {
 
     // =========================
-    // CREATE DECORATION OBJECT (STABLE COLOR ENGINE)
+    // CREATE DECORATION OBJECT (FIXED Z-ORDER & RENDER)
     // =========================
     GameObject* make(
         int id,
         CCPoint pos,
         float scale,
-        int baseChannel,    // Standard color channel IDs (e.g., 1, 2)
-        int detailChannel,
+        int baseChannel,    // Color channel ID (e.g. 1)
+        int detailChannel,  // Color channel ID (e.g. 2)
+        int zOrder,         // Force exact layer stacking order
         float rotation = 0.0f
     ) {
         auto obj = this->m_editorLayer->createObject(id, pos, false);
@@ -24,13 +25,19 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         obj->setScale(scale);
         obj->setRotation(rotation);
 
-        // Safe, official Geode 2.2 channel matching fields
+        // Geode 2.2 safe channel structure properties
         if (obj->m_baseColor) {
             obj->m_baseColor->m_colorID = baseChannel;
         }
         if (obj->m_detailColor) {
             obj->m_detailColor->m_colorID = detailChannel;
         }
+
+        // Force standard sprite engine initialization so colors render transparent accents
+        obj->setupCustomSprites();
+
+        // Put the object into the correct layering queue
+        this->m_editorLayer->m_objectsLayer->reorderChild(obj, zOrder);
 
         return obj;
     }
@@ -80,33 +87,33 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         float s = source->getScale();
         if (s <= 0.0f) s = 1.0f;
 
-        // Offset the generated decoration block to the right side
-        float x = p.x + (60.0f * s);
+        // FIXED: Changed offset to 0.0f so it spawns directly over the source block!
+        float x = p.x + (0.0f * s);
         float y = p.y;
 
-        // Channel 1 = Main Color (Set this to Dark Purple in your level options!)
-        // Channel 2 = Detail Color (Set this to Light Neon Purple in your level options!)
+        // Layer Ordering Map: 
+        // Background = Lower Z (-10) -> Details = Medium Z (0) -> Frames = High Z (10)
 
-        // 1. Background Fill Layer (ID 210 - Solid Square)
-        make(210, CCPoint(x, y), s * 1.0f, 1, 1);
+        // 1. Background Fill Layer (ID 210 - Solid Square behind everything)
+        make(210, CCPoint(x, y), s * 1.0f, 1, 1, -10);
 
         // 2. Tech Grid Texture (ID 1006)
-        make(1006, CCPoint(x, y), s * 0.95f, 2, 1);
+        make(1006, CCPoint(x, y), s * 0.95f, 2, 1, -5);
 
-        // 3. 3D Volumetric Depth Frame (ID 239 - Solid Frame)
-        make(239, CCPoint(x + 6.0f * s, y - 6.0f * s), s * 1.0f, 1, 1);
+        // 3. 3D Volumetric Depth Frame (ID 239 - Shifted Depth)
+        make(239, CCPoint(x + 6.0f * s, y - 6.0f * s), s * 1.0f, 1, 1, -2);
 
-        // 4. Main Front Outline Frame (ID 239)
-        make(239, CCPoint(x, y), s * 1.0f, 2, 2);
+        // 4. Main Front Outline Frame (ID 239 - Front Frame)
+        make(239, CCPoint(x, y), s * 1.0f, 2, 2, 5);
 
         // 5. Heavy Outer Edge Glow (ID 211)
-        make(211, CCPoint(x - 15.0f * s, y), s * 1.0f, 2, 2, 90);  // Left Edge
-        make(211, CCPoint(x + 15.0f * s, y), s * 1.0f, 2, 2, 270); // Right Edge
-        make(211, CCPoint(x, y + 15.0f * s), s * 1.0f, 2, 2, 180); // Top Edge
-        make(211, CCPoint(x, y - 15.0f * s), s * 1.0f, 2, 2, 0);   // Bottom Edge
+        make(211, CCPoint(x - 15.0f * s, y), s * 1.0f, 2, 2, 8, 90);  // Left Edge
+        make(211, CCPoint(x + 15.0f * s, y), s * 1.0f, 2, 2, 8, 270); // Right Edge
+        make(211, CCPoint(x, y + 15.0f * s), s * 1.0f, 2, 2, 8, 180); // Top Edge
+        make(211, CCPoint(x, y - 15.0f * s), s * 1.0f, 2, 2, 8, 0);   // Bottom Edge
 
-        // 6. Cyber Core Center (ID 1825 - Crosshair node)
-        make(1825, CCPoint(x, y), s * 0.40f, 2, 2);
+        // 6. Cyber Core Center (ID 1825 - Crosshair node on top)
+        make(1825, CCPoint(x, y), s * 0.40f, 2, 2, 10);
     }
 
     // =========================
