@@ -7,7 +7,7 @@ using namespace geode::prelude;
 class $modify(AutoDecoEditorUI, EditorUI) {
 
     // =========================
-    // CREATE DECORATION OBJECT
+    // CREATE DECORATION OBJECT (LASER BLENDING MODE)
     // =========================
     GameObject* make(
         int id,
@@ -17,7 +17,8 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         int detailChannel,
         ZLayer layerGroup,
         int zOrderOffset,
-        float rotation = 0.0f
+        float rotation = 0.0f,
+        bool useBlending = false // Gives objects that neon laser glow look
     ) {
         auto obj = this->m_editorLayer->createObject(id, pos, false);
         if (!obj) return nullptr;
@@ -30,6 +31,11 @@ class $modify(AutoDecoEditorUI, EditorUI) {
 
         obj->m_zLayer = layerGroup;
         obj->m_zOrder = zOrderOffset;
+
+        // Force blending to make neon elements semi-transparent and vibrant
+        if (useBlending && obj->m_baseColor) {
+            obj->m_baseColor->m_blending = true;
+        }
 
         return obj;
     }
@@ -64,13 +70,11 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         std::vector<GameObject*> blocks;
         for (int i = 0; i < selectedObjects->count(); i++) {
             auto obj = static_cast<GameObject*>(selectedObjects->objectAtIndex(i));
-            // Only process actual solid grid blocks
             if (obj && obj->m_objectID <= 500) {
                 blocks.push_back(obj);
             }
         }
 
-        // Loop through every single block to check its neighbors
         for (auto source : blocks) {
             auto p = source->getPosition();
             float s = source->getScale();
@@ -84,7 +88,7 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             bool hasTop = false;
             bool hasBottom = false;
 
-            // Check adjacent coordinates (30 units away is 1 full block size)
+            // Neighbor grid scanning (30 unit boundary)
             for (auto target : blocks) {
                 if (target == source) continue;
                 auto tp = target->getPosition();
@@ -100,54 +104,57 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             }
 
             // --------------------------------------------------
-            // BLUEPRINT LAYERING WITH NEIGHBOR AWARENESS
+            // FIXED CYBER TECH WIREFRAME COMPOSITION
             // --------------------------------------------------
             
-            // 1. Core Background Base Fill (Goes behind everything)
-            make(467, CCPoint(x, y), s * 1.0f, 1, 1, ZLayer::B2, 1);
+            // 1. Core Background Base Fill (Swapped to a thin grid plate instead of a massive chunk)
+            make(1006, CCPoint(x, y), s * 0.95f, 1, 1, ZLayer::B2, 1);
 
-            // 2. Interior Tech Grids (Only spawn inside full structures so boundaries look clean)
+            // 2. Interior Tech Core Matrix (Only spawns inside full solid segments)
             if (hasLeft && hasRight && hasTop && hasBottom) {
-                make(1006, CCPoint(x, y), s * 0.90f, 2, 1, ZLayer::B1, 1);
-                make(1825, CCPoint(x, y), s * 0.40f, 2, 2, ZLayer::T1, 15); // Core crosshair
+                make(1006, CCPoint(x, y), s * 0.90f, 2, 1, ZLayer::B1, 1, 0.0f, true);
+                make(1825, CCPoint(x, y), s * 0.40f, 2, 2, ZLayer::T1, 15, 0.0f, true); // Center crosshair
             } else {
-                // If it's an outer edge, put secondary structural grid lines
-                make(1006, CCPoint(x, y), s * 0.50f, 2, 1, ZLayer::B1, 1);
+                make(1006, CCPoint(x, y), s * 0.60f, 2, 1, ZLayer::B1, 1, 0.0f, true);
             }
 
-            // 3. Main Outline Frame Rules (Spawns correct outlines based on exposed edges)
+            // 3. Main Outline Frame Rules (Swapped solid blocks for fine line pipe frames)
             if (!hasTop && !hasLeft) {
-                // Top-Left External Corner Block (Using standard corner ID 468)
-                make(468, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, 0.0f);
-                // Add Cyber Spike Detail sticking out (ID 398)
-                make(398, CCPoint(x - 10.0f * s, y + 10.0f * s), s * 0.6f, 2, 2, ZLayer::B1, -1, 45.0f);
+                // Top-Left External Corner Line Frame (ID 240)
+                make(240, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, 0.0f, true);
+                // Tech Spine Spikes
+                make(398, CCPoint(x - 8.0f * s, y + 8.0f * s), s * 0.5f, 1, 1, ZLayer::B1, -1, 45.0f);
             }
             else if (!hasTop && !hasRight) {
-                // Top-Right External Corner Block
-                make(468, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, 90.0f);
-                make(398, CCPoint(x + 10.0f * s, y + 10.0f * s), s * 0.6f, 2, 2, ZLayer::B1, -1, 135.0f);
+                // Top-Right External Corner Line Frame (ID 240 rotated)
+                make(240, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, 90.0f, true);
+                make(398, CCPoint(x + 8.0f * s, y + 8.0f * s), s * 0.5f, 1, 1, ZLayer::B1, -1, 135.0f);
             }
             else if (!hasBottom && !hasLeft) {
-                // Bottom-Left External Corner Block
-                make(468, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, 270.0f);
+                // Bottom-Left External Corner Line Frame
+                make(240, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, 270.0f, true);
             }
             else if (!hasBottom && !hasRight) {
-                // Bottom-Right External Corner Block
-                make(468, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, 180.0f);
+                // Bottom-Right External Corner Line Frame
+                make(240, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, 180.0f, true);
             }
-            else {
-                // Normal straight edge/internal connection wireframe
-                make(467, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5);
+            else if (!hasTop || !hasBottom || !hasLeft || !hasRight) {
+                // Exposed Straight Edges (Use straight thin frame line ID 239)
+                float edgeRot = 0.0f;
+                if (!hasLeft || !hasRight) edgeRot = 90.0f; // Align vertical vs horizontal
+                make(239, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, edgeRot, true);
             }
 
-            // 4. Edge Glow Highlights (Only glow parts sticking outward into the open air)
-            if (!hasLeft)   make(211, CCPoint(x - 15.0f * s, y), s * 1.0f, 2, 2, ZLayer::T1, 10, 90);
-            if (!hasRight)  make(211, CCPoint(x + 15.0f * s, y), s * 1.0f, 2, 2, ZLayer::T1, 10, 270);
-            if (!hasTop)    make(211, CCPoint(x, y + 15.0f * s), s * 1.0f, 2, 2, ZLayer::T1, 10, 180);
-            if (!hasBottom) make(211, CCPoint(x, y - 15.0f * s), s * 1.0f, 2, 2, ZLayer::T1, 10, 0);
+            // 4. Ambient Laser Glow Lining (Only fires outwards into open air space)
+            if (!hasLeft)   make(211, CCPoint(x - 15.0f * s, y), s * 1.0f, 2, 2, ZLayer::T1, 10, 90, true);
+            if (!hasRight)  make(211, CCPoint(x + 15.0f * s, y), s * 1.0f, 2, 2, ZLayer::T1, 10, 270, true);
+            if (!hasTop)    make(211, CCPoint(x, y + 15.0f * s), s * 1.0f, 2, 2, ZLayer::T1, 10, 180, true);
+            if (!hasBottom) make(211, CCPoint(x, y - 15.0f * s), s * 1.0f, 2, 2, ZLayer::T1, 10, 0, true);
 
-            // 5. 3D Shadow Depth Projections (Shifted down-right globally)
-            make(467, CCPoint(x + 5.0f * s, y - 5.0f * s), s * 1.0f, 1, 1, ZLayer::B1, 2);
+            // 5. Dimensional Volumetric Projections (Slightly offset background laser copy)
+            if (!hasTop || !hasBottom || !hasLeft || !hasRight) {
+                make(239, CCPoint(x + 4.0f * s, y - 4.0f * s), s * 1.0f, 1, 1, ZLayer::B1, 2, 0.0f, true);
+            }
         }
     }
 
@@ -162,7 +169,6 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             return;
         }
 
-        // Run our intelligent multi-block context engine!
         this->decorateStructure(selected);
     }
 };
