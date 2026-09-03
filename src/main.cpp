@@ -5,9 +5,9 @@ using namespace geode::prelude;
 
 class $modify(AutoDecoEditorUI, EditorUI) {
 
-    // =========================================================
+    // =========================
     // COLORS
-    // =========================================================
+    // =========================
 
     static ccColor3B dark() {
         return {8, 4, 14};
@@ -37,9 +37,10 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         return {235, 220, 255};
     }
 
-    // =========================================================
-    // COLOR + OBJECT SETUP
-    // =========================================================
+
+    // =========================
+    // CREATE DECORATION OBJECT
+    // =========================
 
     GameObject* make(
         int id,
@@ -63,11 +64,9 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         obj->setRotation(rotation);
         obj->setOpacity(opacity);
 
-        // Geometry Dash's actual GameObject color system.
         obj->updateMainColor(mainColor);
         obj->updateSecondaryColor(detailColor);
 
-        // Also update the rendered object immediately.
         obj->setObjectColor(mainColor);
         obj->setGlowColor(mainColor);
         obj->setChildColor(detailColor);
@@ -75,19 +74,22 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         return obj;
     }
 
-    // =========================================================
-    // BUTTON
-    // =========================================================
+
+    // =========================
+    // EDITOR BUTTON
+    // =========================
 
     bool init(LevelEditorLayer* editorLayer) {
 
         if (!EditorUI::init(editorLayer))
             return false;
 
+        log::info("Auto Deco loaded");
+
         auto menu = CCMenu::create();
         menu->setPosition(0, 0);
 
-        auto sprite = ButtonSprite::create(
+        auto buttonSprite = ButtonSprite::create(
             "AUTO DECO",
             60,
             true,
@@ -98,7 +100,7 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         );
 
         auto button = CCMenuItemSpriteExtra::create(
-            sprite,
+            buttonSprite,
             this,
             menu_selector(AutoDecoEditorUI::onAutoDeco)
         );
@@ -111,9 +113,10 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         return true;
     }
 
-    // =========================================================
-    // ONE CLEAN FUTURISTIC PIECE
-    // =========================================================
+
+    // =========================
+    // MAKE THE 3D DECORATION
+    // =========================
 
     void decorate(GameObject* source) {
 
@@ -127,143 +130,179 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         if (s <= 0.0f)
             s = 1.0f;
 
-        // Move the whole design to the RIGHT.
-        float x = p.x + 42.0f;
+
+        // Put the decoration to the right
+        float x = p.x + (55.0f * s);
         float y = p.y;
 
-        // =====================================================
-        // BACK / DARK 3D EXTRUSION
-        // =====================================================
+
+        // -------------------------
+        // BACK LAYER
+        // -------------------------
 
         make(
             207,
-            CCPoint(x + 12, y - 10),
-            s * 0.95f,
+            CCPoint(x + 10.0f * s, y - 10.0f * s),
+            s * 0.30f,
             dark(),
-            darkPurple(),
-            0,
-            255
+            darkPurple()
         );
 
         make(
             207,
-            CCPoint(x + 8, y - 7),
-            s * 0.95f,
-            darkPurple(),
-            purple(),
-            0,
-            255
+            CCPoint(x + 20.0f * s, y - 20.0f * s),
+            s * 0.30f,
+            dark(),
+            darkPurple()
         );
 
-        // =====================================================
-        // OUTER L-SHAPED FRAME
-        // =====================================================
 
-        // Top-left
+        // -------------------------
+        // 3D CORNERS
+        // -------------------------
+
+        make(
+            511,
+            CCPoint(x + 18.0f * s, y + 18.0f * s),
+            s * 0.25f,
+            purple(),
+            darkPurple()
+        );
+
+        make(
+            511,
+            CCPoint(x + 18.0f * s, y - 18.0f * s),
+            s * 0.25f,
+            purple(),
+            darkPurple(),
+            90
+        );
+
+        make(
+            510,
+            CCPoint(x - 18.0f * s, y - 18.0f * s),
+            s * 0.25f,
+            neon(),
+            darkPurple(),
+            180
+        );
+
+
+        // -------------------------
+        // OUTER FRAME
+        // -------------------------
+
         make(
             506,
-            CCPoint(x - 15, y + 15),
-            s * 0.72f,
+            CCPoint(x - 18.0f * s, y + 18.0f * s),
+            s * 0.25f,
             neon(),
             purple()
         );
 
-        // Top-middle
         make(
             507,
-            CCPoint(x, y + 15),
-            s * 0.72f,
+            CCPoint(x, y + 18.0f * s),
+            s * 0.25f,
             neon(),
             purple()
         );
 
-        // Top-right
         make(
             509,
-            CCPoint(x + 15, y + 15),
-            s * 0.72f,
+            CCPoint(x + 18.0f * s, y + 18.0f * s),
+            s * 0.25f,
             pink(),
             purple()
         );
 
-        // Right vertical
-        make(
-            511,
-            CCPoint(x + 15, y),
-            s * 0.72f,
-            purple(),
-            darkPurple(),
-            90
-        );
-
-        // Bottom-right
-        make(
-            510,
-            CCPoint(x + 15, y - 15),
-            s * 0.72f,
-            purple(),
-            darkPurple(),
-            90
-        );
-
-        // Left vertical
         make(
             506,
-            CCPoint(x - 15, y),
-            s * 0.72f,
+            CCPoint(x - 18.0f * s, y),
+            s * 0.25f,
             neon(),
             purple(),
             270
         );
 
-        // =====================================================
-        // INNER DARK PANEL
-        // =====================================================
+        make(
+            509,
+            CCPoint(x + 18.0f * s, y),
+            s * 0.25f,
+            pink(),
+            purple(),
+            90
+        );
+
+        make(
+            506,
+            CCPoint(x - 18.0f * s, y - 18.0f * s),
+            s * 0.25f,
+            purple(),
+            darkPurple(),
+            180
+        );
+
+        make(
+            507,
+            CCPoint(x, y - 18.0f * s),
+            s * 0.25f,
+            purple(),
+            darkPurple(),
+            180
+        );
+
+
+        // -------------------------
+        // DARK CENTER
+        // -------------------------
 
         make(
             207,
             CCPoint(x, y),
-            s * 0.72f,
+            s * 0.30f,
             dark(),
             darkPurple()
         );
 
-        // =====================================================
-        // INNER NESTED FRAME
-        // =====================================================
+
+        // -------------------------
+        // INNER FRAME
+        // -------------------------
 
         make(
             524,
-            CCPoint(x - 8, y + 8),
-            s * 0.42f,
+            CCPoint(x - 9.0f * s, y + 9.0f * s),
+            s * 0.15f,
             purple(),
             darkPurple()
         );
 
         make(
             525,
-            CCPoint(x, y + 8),
-            s * 0.42f,
+            CCPoint(x, y + 9.0f * s),
+            s * 0.15f,
             neon(),
             purple()
         );
 
         make(
             527,
-            CCPoint(x + 8, y + 8),
-            s * 0.42f,
+            CCPoint(x + 9.0f * s, y + 9.0f * s),
+            s * 0.15f,
             pink(),
             purple()
         );
 
-        // =====================================================
-        // CENTER TECH BLOCK
-        // =====================================================
+
+        // -------------------------
+        // CENTER PANEL
+        // -------------------------
 
         make(
             210,
             CCPoint(x, y),
-            s * 0.38f,
+            s * 0.13f,
             purple(),
             neon()
         );
@@ -271,81 +310,75 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         make(
             220,
             CCPoint(x, y),
-            s * 0.16f,
+            s * 0.065f,
+            cyan(),
+            white()
+        );
+
+
+        // -------------------------
+        // SMALL TECH NODES
+        // -------------------------
+
+        make(
+            220,
+            CCPoint(x - 20.0f * s, y + 20.0f * s),
+            s * 0.045f,
             cyan(),
             white()
         );
 
         make(
             220,
-            CCPoint(x, y),
-            s * 0.075f,
-            white(),
-            cyan()
-        );
-
-        // =====================================================
-        // 3D CORNER
-        // =====================================================
-
-        make(
-            228,
-            CCPoint(x + 17, y - 17),
-            s * 0.32f,
-            neon(),
-            purple(),
-            0
-        );
-
-        make(
-            242,
-            CCPoint(x - 17, y + 17),
-            s * 0.28f,
-            white(),
-            neon(),
-            45
-        );
-
-        // =====================================================
-        // LITTLE TECH NODES
-        // =====================================================
-
-        make(
-            220,
-            CCPoint(x - 18, y + 19),
-            s * 0.10f,
-            cyan(),
-            white()
-        );
-
-        make(
-            220,
-            CCPoint(x + 18, y + 19),
-            s * 0.10f,
+            CCPoint(x + 20.0f * s, y + 20.0f * s),
+            s * 0.045f,
             pink(),
             white()
         );
 
         make(
             220,
-            CCPoint(x - 18, y - 19),
-            s * 0.10f,
+            CCPoint(x - 20.0f * s, y - 20.0f * s),
+            s * 0.045f,
             purple(),
             cyan()
         );
 
         make(
             220,
-            CCPoint(x + 18, y - 19),
-            s * 0.10f,
+            CCPoint(x + 20.0f * s, y - 20.0f * s),
+            s * 0.045f,
             cyan(),
             purple()
         );
+
+
+        // -------------------------
+        // CORNER HIGHLIGHTS
+        // -------------------------
+
+        make(
+            228,
+            CCPoint(x + 21.0f * s, y - 21.0f * s),
+            s * 0.12f,
+            neon(),
+            purple()
+        );
+
+        make(
+            242,
+            CCPoint(x - 21.0f * s, y + 21.0f * s),
+            s * 0.10f,
+            white(),
+            neon(),
+            45
+        );
     }
 
-    // =========================================================
-    // AUTO DECO
-    // =========================================================
+
+    // =========================
+    // AUTO DECO BUTTON
+    // =========================
 
     void onAutoDeco(CCObject*) {
 
@@ -362,7 +395,7 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             return;
         }
 
-        // Prevent accidentally creating thousands of objects.
+
         if (selected->count() > 20) {
 
             FLAlertLayer::create(
@@ -374,6 +407,8 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             return;
         }
 
+
+        // Decorate every selected block
         for (int i = 0; i < selected->count(); i++) {
 
             auto block = static_cast<GameObject*>(
@@ -384,6 +419,8 @@ class $modify(AutoDecoEditorUI, EditorUI) {
                 decorate(block);
         }
 
+
+        // Confirmation
         auto text = fmt::format(
             "Added futuristic 3D deco to {} block{}!",
             selected->count(),
