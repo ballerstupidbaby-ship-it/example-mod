@@ -8,12 +8,11 @@
 
 using namespace geode::prelude;
 
-// Corner pieces reuse the edge/cap objects you already had (211, 239),
-// just rotated to sit diagonally at the corner spots. Swap these for a
-// dedicated corner-shaped piece later if you find one you like in the
-// build menu — just change the ID here, nothing else needs to change.
-static constexpr int CORNER_OUTER_ID = 211; // spike cap, rotated diagonally outward
-static constexpr int CORNER_INNER_ID = 239; // edge line, rotated diagonally to patch the notch
+// Corner pieces use the triangle/slope block (ID 8), rotated to sit
+// diagonally at the corner spots, giving a pointed accent instead of
+// a flat patch.
+static constexpr int CORNER_OUTER_ID = 8; // slope triangle, rotated diagonally outward
+static constexpr int CORNER_INNER_ID = 8; // slope triangle, rotated diagonally to patch the notch
 
 class $modify(AutoDecoEditorUI, EditorUI) {
     struct Fields {
