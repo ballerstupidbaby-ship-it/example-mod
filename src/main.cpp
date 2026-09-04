@@ -7,7 +7,7 @@ using namespace geode::prelude;
 class $modify(AutoDecoEditorUI, EditorUI) {
 
     // =========================
-    // CREATE DECORATION OBJECT (STABLE ENGINE ENGINE FIX)
+    // CREATE DECORATION OBJECT (STABLE MULTI-LAYER RECONSTRUCTION)
     // =========================
     GameObject* make(
         int id,
@@ -17,8 +17,7 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         int detailChannel,
         ZLayer layerGroup,
         int zOrderOffset,
-        float rotation = 0.0f,
-        bool useGlowBlend = false // Forces transparent laser additive profile properties
+        float rotation = 0.0f
     ) {
         auto obj = this->m_editorLayer->createObject(id, pos, false);
         if (!obj) return nullptr;
@@ -26,16 +25,16 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         obj->setScale(scale);
         obj->setRotation(rotation);
 
-        if (obj->m_baseColor) obj->m_baseColor->m_colorID = baseChannel;
-        if (obj->m_detailColor) obj->m_detailColor->m_colorID = detailChannel;
+        // Safe Geode color channel assignment parameters
+        if (obj->m_baseColor) {
+            obj->m_baseColor->m_colorID = baseChannel;
+        }
+        if (obj->m_detailColor) {
+            obj->m_detailColor->m_colorID = detailChannel;
+        }
 
         obj->m_zLayer = layerGroup;
         obj->m_zOrder = zOrderOffset;
-
-        // FIXED: Uses safe native rendering flags to trigger beautiful additive neon blend arrays
-        if (useGlowBlend) {
-            obj->m_isGlowItem = true;
-        }
 
         return obj;
     }
@@ -112,48 +111,48 @@ class $modify(AutoDecoEditorUI, EditorUI) {
 
             // 2. Interior Tech Core Matrix (Only spawns inside full solid segments)
             if (hasLeft && hasRight && hasTop && hasBottom) {
-                make(1006, CCPoint(x, y), s * 0.90f, 2, 1, ZLayer::B1, 1, 0.0f, true);
-                make(1825, CCPoint(x, y), s * 0.40f, 2, 2, ZLayer::T1, 15, 0.0f, true); // Center crosshair
+                make(1006, CCPoint(x, y), s * 0.90f, 2, 1, ZLayer::B1, 1);
+                make(1825, CCPoint(x, y), s * 0.40f, 2, 2, ZLayer::T1, 15); // Center crosshair
             } else {
-                make(1006, CCPoint(x, y), s * 0.60f, 2, 1, ZLayer::B1, 1, 0.0f, true);
+                make(1006, CCPoint(x, y), s * 0.60f, 2, 1, ZLayer::B1, 1);
             }
 
             // 3. Main Outline Frame Rules (Swapped solid blocks for fine line pipe frames)
             if (!hasTop && !hasLeft) {
                 // Top-Left External Corner Line Frame (ID 240)
-                make(240, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, 0.0f, true);
+                make(240, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, 0.0f);
                 // Tech Spine Spikes
                 make(398, CCPoint(x - 8.0f * s, y + 8.0f * s), s * 0.5f, 1, 1, ZLayer::B1, -1, 45.0f);
             }
             else if (!hasTop && !hasRight) {
                 // Top-Right External Corner Line Frame (ID 240 rotated)
-                make(240, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, 90.0f, true);
+                make(240, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, 90.0f);
                 make(398, CCPoint(x + 8.0f * s, y + 8.0f * s), s * 0.5f, 1, 1, ZLayer::B1, -1, 135.0f);
             }
             else if (!hasBottom && !hasLeft) {
                 // Bottom-Left External Corner Line Frame
-                make(240, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, 270.0f, true);
+                make(240, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, 270.0f);
             }
             else if (!hasBottom && !hasRight) {
                 // Bottom-Right External Corner Line Frame
-                make(240, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, 180.0f, true);
+                make(240, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, 180.0f);
             }
             else if (!hasTop || !hasBottom || !hasLeft || !hasRight) {
                 // Exposed Straight Edges (Use straight thin frame line ID 239)
                 float edgeRot = 0.0f;
                 if (!hasLeft || !hasRight) edgeRot = 90.0f; // Align vertical vs horizontal
-                make(239, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, edgeRot, true);
+                make(239, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, edgeRot);
             }
 
             // 4. Ambient Laser Glow Lining (Only fires outwards into open air space)
-            if (!hasLeft)   make(211, CCPoint(x - 15.0f * s, y), s * 1.0f, 2, 2, ZLayer::T1, 10, 90, true);
-            if (!hasRight)  make(211, CCPoint(x + 15.0f * s, y), s * 1.0f, 2, 2, ZLayer::T1, 10, 270, true);
-            if (!hasTop)    make(211, CCPoint(x, y + 15.0f * s), s * 1.0f, 2, 2, ZLayer::T1, 10, 180, true);
-            if (!hasBottom) make(211, CCPoint(x, y - 15.0f * s), s * 1.0f, 2, 2, ZLayer::T1, 10, 0, true);
+            if (!hasLeft)   make(211, CCPoint(x - 15.0f * s, y), s * 1.0f, 2, 2, ZLayer::T1, 10, 90);
+            if (!hasRight)  make(211, CCPoint(x + 15.0f * s, y), s * 1.0f, 2, 2, ZLayer::T1, 10, 270);
+            if (!hasTop)    make(211, CCPoint(x, y + 15.0f * s), s * 1.0f, 2, 2, ZLayer::T1, 10, 180);
+            if (!hasBottom) make(211, CCPoint(x, y - 15.0f * s), s * 1.0f, 2, 2, ZLayer::T1, 10, 0);
 
             // 5. Dimensional Volumetric Projections (Slightly offset background laser copy)
             if (!hasTop || !hasBottom || !hasLeft || !hasRight) {
-                make(239, CCPoint(x + 4.0f * s, y - 4.0f * s), s * 1.0f, 1, 1, ZLayer::B1, 2, 0.0f, true);
+                make(239, CCPoint(x + 4.0f * s, y - 4.0f * s), s * 1.0f, 1, 1, ZLayer::B1, 2, 0.0f);
             }
         }
     }
