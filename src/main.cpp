@@ -7,7 +7,7 @@ using namespace geode::prelude;
 class $modify(AutoDecoEditorUI, EditorUI) {
 
     // =========================
-    // CREATE DECORATION OBJECT (STABLE EXTRA COMPILER FIXED)
+    // CREATE DECORATION OBJECT (STABLE ENGINE ENGINE FIX)
     // =========================
     GameObject* make(
         int id,
@@ -18,7 +18,7 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         ZLayer layerGroup,
         int zOrderOffset,
         float rotation = 0.0f,
-        bool useBlending = false // True gives items that bright glowing neon overlay look
+        bool useGlowBlend = false // Forces transparent laser additive profile properties
     ) {
         auto obj = this->m_editorLayer->createObject(id, pos, false);
         if (!obj) return nullptr;
@@ -26,20 +26,16 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         obj->setScale(scale);
         obj->setRotation(rotation);
 
-        // Safe Geode color channel assignment parameters
-        if (obj->m_baseColor) {
-            obj->m_baseColor->m_colorID = baseChannel;
-            if (useBlending) {
-                // Safely configures additive blending via public property flags
-                obj->m_baseColor->m_blending = true;
-            }
-        }
-        if (obj->m_detailColor) {
-            obj->m_detailColor->m_colorID = detailChannel;
-        }
+        if (obj->m_baseColor) obj->m_baseColor->m_colorID = baseChannel;
+        if (obj->m_detailColor) obj->m_detailColor->m_colorID = detailChannel;
 
         obj->m_zLayer = layerGroup;
         obj->m_zOrder = zOrderOffset;
+
+        // FIXED: Uses safe native rendering flags to trigger beautiful additive neon blend arrays
+        if (useGlowBlend) {
+            obj->m_isGlowItem = true;
+        }
 
         return obj;
     }
