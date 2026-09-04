@@ -180,7 +180,7 @@ class $modify(AutoDecoEditorUI, EditorUI) {
     }
 
     // ========================================================
-    // AUTO DECO CLICK HOOK INTERCEPTOR (FIXED NATIVE OBJECT VECTOR)
+    // AUTO DECO CLICK HOOK INTERCEPTOR (FIXED COCOS LOOP)
     // ========================================================
     void onAutoDecoClicked(CCObject*) {
         auto selected = this->m_selectedObjects;
@@ -191,10 +191,10 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         }
 
         auto fullStructure = CCArray::create();
+        auto allObjectsArr = this->m_editorLayer->getAllObjects();
         
-        // FIXED: Using Geode's official safe vector function instead of restricted m_objects variable
-        auto allObjectsVec = this->m_editorLayer->getAllObjects();
-        
+        if (!allObjectsArr) return;
+
         std::queue<GameObject*> openSet;
         std::set<GameObject*> visitedSet;
 
@@ -207,14 +207,16 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             }
         }
 
-        // Flood fill tracing sequence over the modern vector array
+        // Flood fill tracing sequence over the safe CCArray layout loop
         while (!openSet.empty()) {
             auto current = openSet.front();
             openSet.pop();
 
             CCPoint currentPos = current->getPosition();
 
-            for (auto potentialNeighbor : allObjectsVec) {
+            for (int k = 0; k < allObjectsArr->count(); k++) {
+                auto potentialNeighbor = static_cast<GameObject*>(allObjectsArr->objectAtIndex(k));
+                
                 if (!potentialNeighbor || potentialNeighbor->m_objectID > 500) continue;
                 if (visitedSet.find(potentialNeighbor) != visitedSet.end()) continue;
 
@@ -223,6 +225,7 @@ class $modify(AutoDecoEditorUI, EditorUI) {
                 float deltaX = std::fabs(currentPos.x - neighborPos.x);
                 float deltaY = std::fabs(currentPos.y - neighborPos.y);
 
+                // Tracing criteria matching touching adjacent items
                 if ((deltaX <= 32.0f && deltaY < 5.0f) || (deltaY <= 32.0f && deltaX < 5.0f)) {
                     visitedSet.insert(potentialNeighbor);
                     openSet.push(potentialNeighbor);
