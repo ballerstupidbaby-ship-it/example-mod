@@ -8,33 +8,9 @@
 
 using namespace geode::prelude;
 
-// ========================================================
-// STABLE COLOR POPUP DELEGATE TRACKER
-// ========================================================
-class DecoColorDelegate : public cocos2d::CCObject, public ColorSelectDelegate {
-public:
-    std::function<void(ccColor3B)> m_callback;
-
-    static DecoColorDelegate* create(std::function<void(ccColor3B)> callback) {
-        auto ret = new DecoColorDelegate();
-        if (ret) {
-            ret->m_callback = callback;
-            ret->autorelease();
-            return ret;
-        }
-        CC_SAFE_DELETE(ret);
-        return nullptr;
-    }
-
-    virtual void colorSelectClosed(ColorSelectPopup* popup, ccColor3B color) {
-        if (m_callback) {
-            m_callback(color);
-        }
-    }
-};
-
 class $modify(AutoDecoEditorUI, EditorUI) {
 
+    // Persistent fields to hold layout selections safely in mod session memory
     struct Fields {
         CCArray* m_savedObjects = nullptr;
     };
@@ -58,7 +34,6 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         obj->setScale(scale);
         obj->setRotation(rotation);
 
-        // FIXED: Using 'm_usesCustomBlend' instead of 'm_useCustomColor' as requested by the 2.2081 compiler
         if (obj->m_baseColor) {
             obj->m_baseColor->m_customColor = mainColor;
             obj->m_baseColor->m_usesCustomBlend = true;
@@ -177,13 +152,11 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             m_fields->m_savedObjects = nullptr;
         }
         this->m_selectedObjects->removeAllObjects();
-        
-        // FIXED: Using 'updateButtons' instead of 'updateObjects' for standard EditorUI updates
         this->updateButtons();
     }
 
     // ========================================================
-    // AUTO DECO CLICK HOOK INTERCEPTOR
+    // AUTO DECO CLICK HOOK INTERCEPTOR (CRASH PROOF GEODE UI)
     // ========================================================
     void onAutoDecoClicked(CCObject*) {
         auto selected = this->m_selectedObjects;
@@ -243,21 +216,20 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         for (int i = 0; i < fullStructure->count(); i++) {
             this->m_selectedObjects->addObject(fullStructure->objectAtIndex(i));
         }
-        
-        // FIXED: Using 'updateButtons' instead of 'updateObjects' for standard EditorUI updates
         this->updateButtons();
 
-        auto delegateTracker = DecoColorDelegate::create([this](ccColor3B pickedColor) {
-            this->decorateStructure(m_fields->m_savedObjects, pickedColor);
-        });
-
-        auto colorSetup = ColorAction::create();
-        if (colorSetup) {
-            auto popup = ColorSelectPopup::create(colorSetup);
-            if (popup) {
-                popup->m_delegate = delegateTracker;
-                popup->show();
+        // FIXED: Using Geode's safe built-in visual color picker component popup overlay
+        // It provides a visual color wheel completely independent of the game's level memory state.
+        auto pickerPopup =ColorPickPopup::create(
+            {255, 255, 255}, // Default base start color
+            [this](ccColor3B pickedColor) {
+                // Instantly run generation logic on chosen block structures when color is picked!
+                this->decorateStructure(m_fields->m_savedObjects, pickedColor);
             }
+        );
+
+        if (pickerPopup) {
+            pickerPopup->show();
         }
     }
 };
