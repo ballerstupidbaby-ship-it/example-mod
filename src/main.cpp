@@ -1,20 +1,53 @@
 #include <Geode/Geode.hpp>
 #include <Geode/modify/EditorUI.hpp>
+#include <Geode/ui/GeodeUI.hpp>
 #include <vector>
+#include <cmath>
+#include <queue>
+#include <set>
 
 using namespace geode::prelude;
 
+// ========================================================
+// STABLE COLOR POPUP DELEGATE TRACKER
+// ========================================================
+class DecoColorDelegate : public cocos2d::CCObject, public ColorSelectDelegate {
+public:
+    std::function<void(ccColor3B)> m_callback;
+
+    static DecoColorDelegate* create(std::function<void(ccColor3B)> callback) {
+        auto ret = new DecoColorDelegate();
+        if (ret) {
+            ret->m_callback = callback;
+            ret->autorelease();
+            return ret;
+        }
+        CC_SAFE_DELETE(ret);
+        return nullptr;
+    }
+
+    virtual void colorSelectClosed(ColorSelectPopup* popup, ccColor3B color) {
+        if (m_callback) {
+            m_callback(color);
+        }
+    }
+};
+
 class $modify(AutoDecoEditorUI, EditorUI) {
 
-    // =========================
-    // CREATE DECORATION OBJECT (STABLE MULTI-LAYER RECONSTRUCTION)
-    // =========================
+    struct Fields {
+        CCArray* m_savedObjects = nullptr;
+    };
+
+    // ========================================================
+    // CREATE DECORATION OBJECT (STABLE CUSTOM RGB OVERRIDES)
+    // ========================================================
     GameObject* make(
         int id,
         CCPoint pos,
         float scale,
-        int baseChannel,
-        int detailChannel,
+        ccColor3B mainColor,
+        ccColor3B detailColor,
         ZLayer layerGroup,
         int zOrderOffset,
         float rotation = 0.0f
@@ -25,12 +58,13 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         obj->setScale(scale);
         obj->setRotation(rotation);
 
-        // Safe Geode color channel assignment parameters
         if (obj->m_baseColor) {
-            obj->m_baseColor->m_colorID = baseChannel;
+            obj->m_baseColor->m_customColor = mainColor;
+            obj->m_baseColor->m_useCustomColor = true;
         }
         if (obj->m_detailColor) {
-            obj->m_detailColor->m_colorID = detailChannel;
+            obj->m_detailColor->m_customColor = detailColor;
+            obj->m_detailColor->m_useCustomColor = true;
         }
 
         obj->m_zLayer = layerGroup;
@@ -39,9 +73,9 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         return obj;
     }
 
-    // =========================
-    // EDITOR BUTTON INITIALIZATION
-    // =========================
+    // ========================================================
+    // EDITOR BUTTON COMPONENT INITIALIZATION
+    // ========================================================
     bool init(LevelEditorLayer* editorLayer) {
         if (!EditorUI::init(editorLayer)) return false;
 
@@ -53,7 +87,7 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         );
 
         auto button = CCMenuItemSpriteExtra::create(
-            buttonSprite, this, menu_selector(AutoDecoEditorUI::onAutoDeco)
+            buttonSprite, this, menu_selector(AutoDecoEditorUI::onAutoDecoClicked)
         );
         button->setPosition(100, 100);
 
@@ -62,17 +96,23 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         return true;
     }
 
-    // =========================
-    // ADVANCED STRUCTURE PROCESSING
-    // =========================
-    void decorateStructure(CCArray* selectedObjects) {
+    // ========================================================
+    // TUTORIAL-BASED MODERN TECH GENERATION ENGINE
+    // ========================================================
+    void decorateStructure(CCArray* selectedObjects, ccColor3B userColor) {
         std::vector<GameObject*> blocks;
+        if (!selectedObjects) return;
+
         for (int i = 0; i < selectedObjects->count(); i++) {
             auto obj = static_cast<GameObject*>(selectedObjects->objectAtIndex(i));
             if (obj && obj->m_objectID <= 500) {
                 blocks.push_back(obj);
             }
         }
+
+        ccColor3B whiteColor = userColor; 
+        ccColor3B blackColor = {10, 10, 15}; 
+        ccColor3B darkGreyDetails = {50, 50, 60}; 
 
         for (auto source : blocks) {
             auto p = source->getPosition();
@@ -87,87 +127,131 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             bool hasTop = false;
             bool hasBottom = false;
 
-            // Neighbor grid scanning (30 unit boundary)
             for (auto target : blocks) {
                 if (target == source) continue;
                 auto tp = target->getPosition();
                 
-                if (fabs(tp.y - y) < 5.0f) {
+                if (std::fabs(tp.y - y) < 5.0f) {
                     if (tp.x < x && tp.x >= x - 32.0f) hasLeft = true;
                     if (tp.x > x && tp.x <= x + 32.0f) hasRight = true;
                 }
-                if (fabs(tp.x - x) < 5.0f) {
+                if (std::fabs(tp.x - x) < 5.0f) {
                     if (tp.y > y && tp.y <= y + 32.0f) hasTop = true;
                     if (tp.y < y && tp.y >= y - 32.0f) hasBottom = true;
                 }
             }
 
-            // --------------------------------------------------
-            // CYBER TECH HOLLOW WIREFRAME COMPOSITION
-            // --------------------------------------------------
-            
-            // 1. Core Background Base Fill (A thin grid layout plate instead of a massive solid brick)
-            make(1006, CCPoint(x, y), s * 0.95f, 1, 1, ZLayer::B2, 1);
+            // WHITE FILL IN THE BLOCK & ADD BLACK OUTLINE
+            make(210, CCPoint(x, y), s * 1.0f, whiteColor, whiteColor, ZLayer::B2, 1);
 
-            // 2. Interior Tech Core Matrix (Only spawns inside full solid segments)
-            if (hasLeft && hasRight && hasTop && hasBottom) {
-                make(1006, CCPoint(x, y), s * 0.90f, 2, 1, ZLayer::B1, 1);
-                make(1825, CCPoint(x, y), s * 0.40f, 2, 2, ZLayer::T1, 15); // Center crosshair
-            } else {
-                make(1006, CCPoint(x, y), s * 0.60f, 2, 1, ZLayer::B1, 1);
-            }
-
-            // 3. Main Outline Frame Rules (Swapped solid blocks for fine line pipe frames)
-            if (!hasTop && !hasLeft) {
-                // Top-Left External Corner Line Frame (ID 240)
-                make(240, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, 0.0f);
-                // Tech Spine Spikes
-                make(398, CCPoint(x - 8.0f * s, y + 8.0f * s), s * 0.5f, 1, 1, ZLayer::B1, -1, 45.0f);
-            }
-            else if (!hasTop && !hasRight) {
-                // Top-Right External Corner Line Frame (ID 240 rotated)
-                make(240, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, 90.0f);
-                make(398, CCPoint(x + 8.0f * s, y + 8.0f * s), s * 0.5f, 1, 1, ZLayer::B1, -1, 135.0f);
-            }
-            else if (!hasBottom && !hasLeft) {
-                // Bottom-Left External Corner Line Frame
-                make(240, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, 270.0f);
-            }
-            else if (!hasBottom && !hasRight) {
-                // Bottom-Right External Corner Line Frame
-                make(240, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, 180.0f);
-            }
-            else if (!hasTop || !hasBottom || !hasLeft || !hasRight) {
-                // Exposed Straight Edges (Use straight thin frame line ID 239)
-                float edgeRot = 0.0f;
-                if (!hasLeft || !hasRight) edgeRot = 90.0f; // Align vertical vs horizontal
-                make(239, CCPoint(x, y), s * 1.0f, 2, 2, ZLayer::T1, 5, edgeRot);
-            }
-
-            // 4. Ambient Laser Glow Lining (Only fires outwards into open air space)
-            if (!hasLeft)   make(211, CCPoint(x - 15.0f * s, y), s * 1.0f, 2, 2, ZLayer::T1, 10, 90);
-            if (!hasRight)  make(211, CCPoint(x + 15.0f * s, y), s * 1.0f, 2, 2, ZLayer::T1, 10, 270);
-            if (!hasTop)    make(211, CCPoint(x, y + 15.0f * s), s * 1.0f, 2, 2, ZLayer::T1, 10, 180);
-            if (!hasBottom) make(211, CCPoint(x, y - 15.0f * s), s * 1.0f, 2, 2, ZLayer::T1, 10, 0);
-
-            // 5. Dimensional Volumetric Projections (Slightly offset background laser copy)
             if (!hasTop || !hasBottom || !hasLeft || !hasRight) {
-                make(239, CCPoint(x + 4.0f * s, y - 4.0f * s), s * 1.0f, 1, 1, ZLayer::B1, 2, 0.0f);
+                float rot = 0.0f;
+                if (!hasLeft || !hasRight) rot = 90.0f;
+                make(239, CCPoint(x, y), s * 1.0f, blackColor, blackColor, ZLayer::B1, 5, rot);
             }
+
+            // ADD WHITE 3D OBJ & BLACK 3D FILL
+            if (!hasTop || !hasBottom || !hasLeft || !hasRight) {
+                make(239, CCPoint(x + 4.0f * s, y - 4.0f * s), s * 1.0f, whiteColor, whiteColor, ZLayer::B1, 2);
+                make(210, CCPoint(x + 2.0f * s, y - 2.0f * s), s * 1.0f, blackColor, blackColor, ZLayer::B2, -2);
+            }
+
+            // LIGHT AND SHADOW GLOW MATRIX
+            if (!hasTop)    make(211, CCPoint(x, y + 14.0f * s), s * 1.0f, whiteColor, whiteColor, ZLayer::T1, 8, 180);
+            if (!hasBottom) make(211, CCPoint(x, y - 14.0f * s), s * 1.0f, blackColor, blackColor, ZLayer::B1, 3, 0);
+
+            // INTERNAL TECH DECO OBJECTS
+            if (hasLeft && hasRight && hasTop && hasBottom) {
+                make(1006, CCPoint(x, y), s * 0.90f, darkGreyDetails, blackColor, ZLayer::B1, 4);
+                make(1324, CCPoint(x, y), s * 0.40f, whiteColor, blackColor, ZLayer::T1, 10);
+            } else {
+                make(1006, CCPoint(x, y), s * 0.50f, darkGreyDetails, blackColor, ZLayer::B1, 4);
+            }
+
+            this->m_editorLayer->removeObject(source, false);
         }
+
+        if (m_fields->m_savedObjects) {
+            m_fields->m_savedObjects->release();
+            m_fields->m_savedObjects = nullptr;
+        }
+        this->m_selectedObjects->removeAllObjects();
+        this->updateObjects();
     }
 
-    // =========================
-    // AUTO DECO BUTTON TRIGGER
-    // =========================
-    void onAutoDeco(CCObject*) {
+    // ========================================================
+    // AUTO DECO CLICK HOOK INTERCEPTOR (FIXED NATIVE OBJECT VECTOR)
+    // ========================================================
+    void onAutoDecoClicked(CCObject*) {
         auto selected = this->m_selectedObjects;
 
         if (!selected || selected->count() == 0) {
-            FLAlertLayer::create("AUTO DECO", "Select some blocks first!", "OK")->show();
+            FLAlertLayer::create("AUTO DECO", "Select at least ONE layout block first!", "OK")->show();
             return;
         }
 
-        this->decorateStructure(selected);
+        auto fullStructure = CCArray::create();
+        
+        // FIXED: Using Geode's official safe vector function instead of restricted m_objects variable
+        auto allObjectsVec = this->m_editorLayer->getAllObjects();
+        
+        std::queue<GameObject*> openSet;
+        std::set<GameObject*> visitedSet;
+
+        for (int i = 0; i < selected->count(); i++) {
+            auto obj = static_cast<GameObject*>(selected->objectAtIndex(i));
+            if (obj && obj->m_objectID <= 500) {
+                openSet.push(obj);
+                visitedSet.insert(obj);
+                fullStructure->addObject(obj);
+            }
+        }
+
+        // Flood fill tracing sequence over the modern vector array
+        while (!openSet.empty()) {
+            auto current = openSet.front();
+            openSet.pop();
+
+            CCPoint currentPos = current->getPosition();
+
+            for (auto potentialNeighbor : allObjectsVec) {
+                if (!potentialNeighbor || potentialNeighbor->m_objectID > 500) continue;
+                if (visitedSet.find(potentialNeighbor) != visitedSet.end()) continue;
+
+                CCPoint neighborPos = potentialNeighbor->getPosition();
+                
+                float deltaX = std::fabs(currentPos.x - neighborPos.x);
+                float deltaY = std::fabs(currentPos.y - neighborPos.y);
+
+                if ((deltaX <= 32.0f && deltaY < 5.0f) || (deltaY <= 32.0f && deltaX < 5.0f)) {
+                    visitedSet.insert(potentialNeighbor);
+                    openSet.push(potentialNeighbor);
+                    fullStructure->addObject(potentialNeighbor);
+                }
+            }
+        }
+
+        if (m_fields->m_savedObjects) m_fields->m_savedObjects->release();
+        m_fields->m_savedObjects = fullStructure;
+        m_fields->m_savedObjects->retain();
+
+        this->m_selectedObjects->removeAllObjects();
+        for (int i = 0; i < fullStructure->count(); i++) {
+            this->m_selectedObjects->addObject(fullStructure->objectAtIndex(i));
+        }
+        this->updateObjects();
+
+        auto delegateTracker = DecoColorDelegate::create([this](ccColor3B pickedColor) {
+            this->decorateStructure(m_fields->m_savedObjects, pickedColor);
+        });
+
+        auto colorSetup = ColorAction::create();
+        if (colorSetup) {
+            auto popup = ColorSelectPopup::create(colorSetup);
+            if (popup) {
+                popup->m_delegate = delegateTracker;
+                popup->show();
+            }
+        }
     }
 };
