@@ -58,13 +58,14 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         obj->setScale(scale);
         obj->setRotation(rotation);
 
+        // FIXED: Using 'm_usesCustomBlend' instead of 'm_useCustomColor' as requested by the 2.2081 compiler
         if (obj->m_baseColor) {
             obj->m_baseColor->m_customColor = mainColor;
-            obj->m_baseColor->m_useCustomColor = true;
+            obj->m_baseColor->m_usesCustomBlend = true;
         }
         if (obj->m_detailColor) {
             obj->m_detailColor->m_customColor = detailColor;
-            obj->m_detailColor->m_useCustomColor = true;
+            obj->m_detailColor->m_usesCustomBlend = true;
         }
 
         obj->m_zLayer = layerGroup;
@@ -176,11 +177,13 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             m_fields->m_savedObjects = nullptr;
         }
         this->m_selectedObjects->removeAllObjects();
-        this->updateObjects();
+        
+        // FIXED: Using 'updateButtons' instead of 'updateObjects' for standard EditorUI updates
+        this->updateButtons();
     }
 
     // ========================================================
-    // AUTO DECO CLICK HOOK INTERCEPTOR (FIXED COCOS LOOP)
+    // AUTO DECO CLICK HOOK INTERCEPTOR
     // ========================================================
     void onAutoDecoClicked(CCObject*) {
         auto selected = this->m_selectedObjects;
@@ -207,7 +210,6 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             }
         }
 
-        // Flood fill tracing sequence over the safe CCArray layout loop
         while (!openSet.empty()) {
             auto current = openSet.front();
             openSet.pop();
@@ -225,7 +227,6 @@ class $modify(AutoDecoEditorUI, EditorUI) {
                 float deltaX = std::fabs(currentPos.x - neighborPos.x);
                 float deltaY = std::fabs(currentPos.y - neighborPos.y);
 
-                // Tracing criteria matching touching adjacent items
                 if ((deltaX <= 32.0f && deltaY < 5.0f) || (deltaY <= 32.0f && deltaX < 5.0f)) {
                     visitedSet.insert(potentialNeighbor);
                     openSet.push(potentialNeighbor);
@@ -242,7 +243,9 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         for (int i = 0; i < fullStructure->count(); i++) {
             this->m_selectedObjects->addObject(fullStructure->objectAtIndex(i));
         }
-        this->updateObjects();
+        
+        // FIXED: Using 'updateButtons' instead of 'updateObjects' for standard EditorUI updates
+        this->updateButtons();
 
         auto delegateTracker = DecoColorDelegate::create([this](ccColor3B pickedColor) {
             this->decorateStructure(m_fields->m_savedObjects, pickedColor);
