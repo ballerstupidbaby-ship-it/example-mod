@@ -4,14 +4,32 @@
 #include <cmath>
 #include <queue>
 #include <set>
+#include <unordered_map>
 
 using namespace geode::prelude;
+
+// Corner pieces reuse the edge/cap objects you already had (211, 239),
+// just rotated to sit diagonally at the corner spots. Swap these for a
+// dedicated corner-shaped piece later if you find one you like in the
+// build menu — just change the ID here, nothing else needs to change.
+static constexpr int CORNER_OUTER_ID = 211; // spike cap, rotated diagonally outward
+static constexpr int CORNER_INNER_ID = 239; // edge line, rotated diagonally to patch the notch
 
 class $modify(AutoDecoEditorUI, EditorUI) {
     struct Fields {
         CCArray* m_savedObjects = nullptr;
         ccColor3B m_activeThemeColor = {240, 30, 255};
     };
+
+    // Simple flags for the 8 neighbor directions around a block.
+    struct Neighbors {
+        bool N = false, S = false, E = false, W = false;
+        bool NE = false, NW = false, SE = false, SW = false;
+    };
+
+    static int64_t gridKey(int gx, int gy) {
+        return (static_cast<int64_t>(gx) << 32) ^ static_cast<uint32_t>(gy);
+    }
 
     GameObject* make(int id, CCPoint pos, float scale, ccColor3B mainColor, ccColor3B detailColor, ZLayer layerGroup, int zOrderOffset, float rotation = 0.0f) {
         auto obj = this->m_editorLayer->createObject(id, pos, false);
@@ -72,46 +90,87 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             auto obj = static_cast<GameObject*>(selectedObjects->objectAtIndex(i));
             if (obj && obj->m_objectID <= 500) blocks.push_back(obj);
         }
+
         ccColor3B whiteColor = m_fields->m_activeThemeColor;
         ccColor3B blackColor = {10, 10, 15};
         ccColor3B darkGreyDetails = {50, 50, 60};
+
+        // Grid size assumption matches your original 32u spacing check.
+        const float cell = 32.0f;
+        std::unordered_map<int64_t, GameObject*> grid;
+        auto keyFor = [&](float x, float y) -> int64_t {
+            int gx = static_cast<int>(std::round(x / cell));
+            int gy = static_cast<int>(std::round(y / cell));
+            return gridKey(gx, gy);
+        };
+        for (auto b : blocks) {
+            auto pos = b->getPosition();
+            grid[keyFor(pos.x, pos.y)] = b;
+        }
+
         for (auto source : blocks) {
             auto p = source->getPosition();
             float s = source->getScale();
             if (s <= 0.0f) s = 1.0f;
             float x = p.x; float y = p.y;
-            bool hasLeft = false; bool hasRight = false; bool hasTop = false; bool hasBottom = false;
-            for (auto target : blocks) {
-                if (target == source) continue;
-                auto tp = target->getPosition();
-                if (std::fabs(tp.y - y) < 5.0f) {
-                    if (tp.x < x && tp.x >= x - 32.0f) hasLeft = true;
-                    if (tp.x > x && tp.x <= x + 32.0f) hasRight = true;
-                }
-                if (std::fabs(tp.x - x) < 5.0f) {
-                    if (tp.y > y && tp.y <= y + 32.0f) hasTop = true;
-                    if (tp.y < y && tp.y >= y - 32.0f) hasBottom = true;
-                }
-            }
+
+            Neighbors n;
+            n.W  = grid.count(keyFor(x - cell, y)) > 0;
+            n.E  = grid.count(keyFor(x + cell, y)) > 0;
+            n.N  = grid.count(keyFor(x, y + cell)) > 0;
+            n.S  = grid.count(keyFor(x, y - cell)) > 0;
+            n.NW = grid.count(keyFor(x - cell, y + cell)) > 0;
+            n.NE = grid.count(keyFor(x + cell, y + cell)) > 0;
+            n.SW = grid.count(keyFor(x - cell, y - cell)) > 0;
+            n.SE = grid.count(keyFor(x + cell, y - cell)) > 0;
+
+            bool anyEdgeExposed = !n.N || !n.S || !n.E || !n.W;
+
+            // Base fill block, always present.
             make(210, CCPoint(x, y), s * 1.0f, whiteColor, whiteColor, ZLayer::B2, 1);
-            if (!hasTop || !hasBottom || !hasLeft || !hasRight) {
-                float rot = 0.0f; if (!hasLeft || !hasRight) rot = 90.0f;
-                make(239, CCPoint(x, y), s * 1.0f, blackColor, blackColor, ZLayer::B1, 5, rot);
-            }
-            if (!hasTop || !hasBottom || !hasLeft || !hasRight) {
+
+            // Shadow/highlight accent kept from your original, on any exposed side.
+            if (anyEdgeExposed) {
                 make(239, CCPoint(x + 4.0f * s, y - 4.0f * s), s * 1.0f, whiteColor, whiteColor, ZLayer::B1, 2);
                 make(210, CCPoint(x + 2.0f * s, y - 2.0f * s), s * 1.0f, blackColor, blackColor, ZLayer::B2, -2);
             }
-            if (!hasTop)    make(211, CCPoint(x, y + 14.0f * s), s * 1.0f, whiteColor, whiteColor, ZLayer::T1, 8, 180);
-            if (!hasBottom) make(211, CCPoint(x, y - 14.0f * s), s * 1.0f, blackColor, blackColor, ZLayer::B1, 3, 0);
-            if (hasLeft && hasRight && hasTop && hasBottom) {
+
+            // Straight edges — placed independently per side now, instead of
+            // one edge piece per block guessing a single rotation.
+            if (!n.N) make(211, CCPoint(x, y + 14.0f * s), s * 1.0f, whiteColor, whiteColor, ZLayer::T1, 8, 180.0f);
+            if (!n.S) make(211, CCPoint(x, y - 14.0f * s), s * 1.0f, blackColor, blackColor, ZLayer::B1, 3, 0.0f);
+            if (!n.W) make(239, CCPoint(x - 14.0f * s, y), s * 1.0f, blackColor, blackColor, ZLayer::B1, 5, 90.0f);
+            if (!n.E) make(239, CCPoint(x + 14.0f * s, y), s * 1.0f, blackColor, blackColor, ZLayer::B1, 5, 90.0f);
+
+            // Outer (convex) corners: two adjacent flat sides both missing.
+            // Rotated so the spike points away from the structure.
+            if (!n.N && !n.E) make(CORNER_OUTER_ID, CCPoint(x + 10.0f * s, y + 10.0f * s), s * 1.0f, whiteColor, blackColor, ZLayer::T1, 9, 45.0f);
+            if (!n.N && !n.W) make(CORNER_OUTER_ID, CCPoint(x - 10.0f * s, y + 10.0f * s), s * 1.0f, whiteColor, blackColor, ZLayer::T1, 9, 315.0f);
+            if (!n.S && !n.W) make(CORNER_OUTER_ID, CCPoint(x - 10.0f * s, y - 10.0f * s), s * 1.0f, whiteColor, blackColor, ZLayer::T1, 9, 225.0f);
+            if (!n.S && !n.E) make(CORNER_OUTER_ID, CCPoint(x + 10.0f * s, y - 10.0f * s), s * 1.0f, whiteColor, blackColor, ZLayer::T1, 9, 135.0f);
+
+            // Inner (concave) corners: both adjacent sides filled, but the
+            // diagonal between them is empty. Without this, the outline has
+            // a visible gap at every inward turn of the structure.
+            if (n.N && n.E && !n.NE) make(CORNER_INNER_ID, CCPoint(x + 14.0f * s, y + 14.0f * s), s * 1.0f, blackColor, blackColor, ZLayer::B1, 6, 45.0f);
+            if (n.N && n.W && !n.NW) make(CORNER_INNER_ID, CCPoint(x - 14.0f * s, y + 14.0f * s), s * 1.0f, blackColor, blackColor, ZLayer::B1, 6, 315.0f);
+            if (n.S && n.W && !n.SW) make(CORNER_INNER_ID, CCPoint(x - 14.0f * s, y - 14.0f * s), s * 1.0f, blackColor, blackColor, ZLayer::B1, 6, 225.0f);
+            if (n.S && n.E && !n.SE) make(CORNER_INNER_ID, CCPoint(x + 14.0f * s, y - 14.0f * s), s * 1.0f, blackColor, blackColor, ZLayer::B1, 6, 135.0f);
+
+            // Center detail: only blocks with all 8 neighbors present are
+            // "fully interior" and get the denser nested-square look.
+            bool fullyInterior = n.N && n.S && n.E && n.W && n.NE && n.NW && n.SE && n.SW;
+            if (fullyInterior) {
                 make(1006, CCPoint(x, y), s * 0.90f, darkGreyDetails, blackColor, ZLayer::B1, 4);
-                make(1324, CCPoint(x, y), s * 0.40f, whiteColor, blackColor, ZLayer::T1, 10);
+                make(1324, CCPoint(x, y), s * 0.55f, whiteColor, blackColor, ZLayer::T1, 10);
+                make(1324, CCPoint(x, y), s * 0.30f, blackColor, blackColor, ZLayer::T1, 11);
             } else {
                 make(1006, CCPoint(x, y), s * 0.50f, darkGreyDetails, blackColor, ZLayer::B1, 4);
             }
+
             this->m_editorLayer->removeObject(source, false);
         }
+
         if (m_fields->m_savedObjects) { m_fields->m_savedObjects->release(); m_fields->m_savedObjects = nullptr; }
         this->m_selectedObjects->removeAllObjects();
         this->updateButtons();
