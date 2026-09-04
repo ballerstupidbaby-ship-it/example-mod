@@ -54,6 +54,21 @@ class $modify(AutoDecoEditorUI, EditorUI) {
     void onSelectPink(CCObject*)   { m_fields->m_activeThemeColor = {255, 40, 180}; }
     void onSelectGreen(CCObject*)  { m_fields->m_activeThemeColor = {30, 255, 100}; }
 
+    // Prints the object ID of whatever is currently selected to the Geode
+    // console/log. Select a block in the editor, tap "LOG ID", then check
+    // Geode's console for a line like "Selected object ID: 211".
+    void onLogSelectedIDs(CCObject*) {
+        auto selected = this->m_selectedObjects;
+        if (!selected || selected->count() == 0) {
+            FLAlertLayer::create("LOG ID", "Select something first!", "OK")->show();
+            return;
+        }
+        for (int i = 0; i < selected->count(); i++) {
+            auto obj = static_cast<GameObject*>(selected->objectAtIndex(i));
+            if (obj) geode::log::info("Selected object ID: {}", obj->m_objectID);
+        }
+    }
+
     bool init(LevelEditorLayer* editorLayer) {
         if (!EditorUI::init(editorLayer)) return false;
         auto menu = CCMenu::create();
@@ -62,6 +77,10 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         auto button = CCMenuItemSpriteExtra::create(buttonSprite, this, menu_selector(AutoDecoEditorUI::onAutoDecoClicked));
         button->setPosition(100, 110);
         menu->addChild(button);
+        auto logButtonSprite = ButtonSprite::create("LOG ID", 60, true, "goldFont.fnt", "GJ_button_01.png", 25, 0.6f);
+        auto logButton = CCMenuItemSpriteExtra::create(logButtonSprite, this, menu_selector(AutoDecoEditorUI::onLogSelectedIDs));
+        logButton->setPosition(100, 140);
+        menu->addChild(logButton);
         float dotX = 65.0f; float dotY = 75.0f;
         auto pDot = CCSprite::createWithSpriteFrameName("GJ_colorBtn_001.png");
         pDot->setColor({240, 30, 255}); pDot->setScale(0.5f);
