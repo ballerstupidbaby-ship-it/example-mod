@@ -8,11 +8,16 @@
 
 using namespace geode::prelude;
 
-// Corner pieces use the triangle/slope block (ID 8), rotated to sit
-// diagonally at the corner spots, giving a pointed accent instead of
-// a flat patch.
-static constexpr int CORNER_OUTER_ID = 8; // slope triangle, rotated diagonally outward
-static constexpr int CORNER_INNER_ID = 8; // slope triangle, rotated diagonally to patch the notch
+// Corner pieces, matched from a screenshot of shapes you placed in-editor:
+// 547 = solid filled triangle (spike look) for outer corners.
+// 8   = white slope/wedge outline, used to patch inner corner notches.
+static constexpr int CORNER_OUTER_ID = 547; // filled triangle, rotated diagonally outward
+static constexpr int CORNER_INNER_ID = 8;   // slope wedge, rotated diagonally to patch the notch
+
+// Other pieces, first pass based on the same screenshot match:
+static constexpr int BASE_FILL_ID = 507;   // solid filled square
+static constexpr int CAP_ID = 538;         // small wedge, used as top/bottom cap accent
+static constexpr int CENTER_DETAIL_ID = 470; // larger outlined square, center detail
 
 class $modify(AutoDecoEditorUI, EditorUI) {
     struct Fields {
@@ -145,18 +150,18 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             bool anyEdgeExposed = !n.N || !n.S || !n.E || !n.W;
 
             // Base fill block, always present.
-            make(210, CCPoint(x, y), s * 1.0f, whiteColor, whiteColor, ZLayer::B2, 1);
+            make(BASE_FILL_ID, CCPoint(x, y), s * 1.0f, whiteColor, whiteColor, ZLayer::B2, 1);
 
             // Shadow/highlight accent kept from your original, on any exposed side.
             if (anyEdgeExposed) {
                 make(239, CCPoint(x + 4.0f * s, y - 4.0f * s), s * 1.0f, whiteColor, whiteColor, ZLayer::B1, 2);
-                make(210, CCPoint(x + 2.0f * s, y - 2.0f * s), s * 1.0f, blackColor, blackColor, ZLayer::B2, -2);
+                make(BASE_FILL_ID, CCPoint(x + 2.0f * s, y - 2.0f * s), s * 1.0f, blackColor, blackColor, ZLayer::B2, -2);
             }
 
             // Straight edges — placed independently per side now, instead of
             // one edge piece per block guessing a single rotation.
-            if (!n.N) make(211, CCPoint(x, y + 14.0f * s), s * 1.0f, whiteColor, whiteColor, ZLayer::T1, 8, 180.0f);
-            if (!n.S) make(211, CCPoint(x, y - 14.0f * s), s * 1.0f, blackColor, blackColor, ZLayer::B1, 3, 0.0f);
+            if (!n.N) make(CAP_ID, CCPoint(x, y + 14.0f * s), s * 1.0f, whiteColor, whiteColor, ZLayer::T1, 8, 180.0f);
+            if (!n.S) make(CAP_ID, CCPoint(x, y - 14.0f * s), s * 1.0f, blackColor, blackColor, ZLayer::B1, 3, 0.0f);
             if (!n.W) make(239, CCPoint(x - 14.0f * s, y), s * 1.0f, blackColor, blackColor, ZLayer::B1, 5, 90.0f);
             if (!n.E) make(239, CCPoint(x + 14.0f * s, y), s * 1.0f, blackColor, blackColor, ZLayer::B1, 5, 90.0f);
 
@@ -179,11 +184,11 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             // "fully interior" and get the denser nested-square look.
             bool fullyInterior = n.N && n.S && n.E && n.W && n.NE && n.NW && n.SE && n.SW;
             if (fullyInterior) {
-                make(1006, CCPoint(x, y), s * 0.90f, darkGreyDetails, blackColor, ZLayer::B1, 4);
+                make(CENTER_DETAIL_ID, CCPoint(x, y), s * 0.90f, darkGreyDetails, blackColor, ZLayer::B1, 4);
                 make(1324, CCPoint(x, y), s * 0.55f, whiteColor, blackColor, ZLayer::T1, 10);
                 make(1324, CCPoint(x, y), s * 0.30f, blackColor, blackColor, ZLayer::T1, 11);
             } else {
-                make(1006, CCPoint(x, y), s * 0.50f, darkGreyDetails, blackColor, ZLayer::B1, 4);
+                make(CENTER_DETAIL_ID, CCPoint(x, y), s * 0.50f, darkGreyDetails, blackColor, ZLayer::B1, 4);
             }
 
             this->m_editorLayer->removeObject(source, false);
