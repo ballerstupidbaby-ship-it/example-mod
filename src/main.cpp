@@ -22,11 +22,11 @@ class $modify(AutoDecoEditorUI, EditorUI) {
 
         CCMenu* menu = nullptr;
 
-        // 0 = bottom-left
-        // 1 = top-left
-        // 2 = top-right
-        // 3 = bottom-right
-        int menuPosition = 0;
+        // 0 = middle-left
+        // 1 = middle-right
+        // 2 = top-left
+        // 3 = top-right
+        int menuPosition = 1;
     };
 
     bool init(LevelEditorLayer* editorLayer) {
@@ -35,6 +35,8 @@ class $modify(AutoDecoEditorUI, EditorUI) {
 
         log::info("Auto Deco loaded");
 
+        auto fields = m_fields.self();
+
         auto menu = CCMenu::create();
 
         if (!menu)
@@ -42,10 +44,12 @@ class $modify(AutoDecoEditorUI, EditorUI) {
 
         menu->setPosition(0, 0);
 
-        auto fields = m_fields.self();
         fields->menu = menu;
 
-        // SAVE BUTTON
+        // -------------------------
+        // SAVE
+        // -------------------------
+
         auto saveSprite = ButtonSprite::create(
             "SAVE",
             50,
@@ -65,7 +69,10 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         saveButton->setPosition(55, 40);
         menu->addChild(saveButton);
 
-        // DECO BUTTON
+        // -------------------------
+        // DECO
+        // -------------------------
+
         auto decoSprite = ButtonSprite::create(
             "DECO",
             50,
@@ -85,7 +92,10 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         decoButton->setPosition(135, 40);
         menu->addChild(decoButton);
 
-        // MOVE BUTTON
+        // -------------------------
+        // MOVE
+        // -------------------------
+
         auto moveSprite = ButtonSprite::create(
             "MOVE",
             50,
@@ -123,33 +133,43 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         CCPoint position;
 
         switch (fields->menuPosition) {
+            // Middle-left
             case 0:
-                position = CCPoint(0, 0);
+                position = CCPoint(
+                    20,
+                    (winSize.height / 2.0f) - 40.0f
+                );
                 break;
 
+            // Middle-right
             case 1:
                 position = CCPoint(
-                    0,
-                    winSize.height - 85
+                    winSize.width - 255.0f,
+                    (winSize.height / 2.0f) - 40.0f
                 );
                 break;
 
+            // Top-left
             case 2:
                 position = CCPoint(
-                    winSize.width - 270,
-                    winSize.height - 85
+                    20,
+                    winSize.height - 130.0f
                 );
                 break;
 
+            // Top-right
             case 3:
                 position = CCPoint(
-                    winSize.width - 270,
-                    0
+                    winSize.width - 255.0f,
+                    winSize.height - 130.0f
                 );
                 break;
 
             default:
-                position = CCPoint(0, 0);
+                position = CCPoint(
+                    winSize.width - 255.0f,
+                    (winSize.height / 2.0f) - 40.0f
+                );
                 break;
         }
 
@@ -173,7 +193,7 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         if (!selected || selected->count() == 0) {
             FLAlertLayer::create(
                 "Auto Deco",
-                "Select your decoration first!",
+                "Select your decoration objects first!",
                 "OK"
             )->show();
 
@@ -248,7 +268,7 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         )->show();
 
         log::info(
-            "Auto Deco template saved: {} objects",
+            "Auto Deco saved {} objects",
             fields->templateObjects.size()
         );
     }
@@ -298,14 +318,14 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         int created = 0;
 
         for (auto const& data : fields->templateObjects) {
-            CCPoint newPosition(
+            CCPoint position(
                 anchorPosition.x + data.offset.x,
                 anchorPosition.y + data.offset.y
             );
 
             auto object = this->m_editorLayer->createObject(
                 data.objectID,
-                newPosition,
+                position,
                 false
             );
 
@@ -316,27 +336,8 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             object->setRotation(data.rotation);
             object->setOpacity(data.opacity);
 
-            // Ask GD to refresh the object's existing color state.
-            object->updateMainColor();
-            object->updateSecondaryColor();
-
             created++;
         }
 
         auto message = fmt::format(
-            "Auto Deco created {} objects!",
-            created
-        );
-
-        FLAlertLayer::create(
-            "Auto Deco",
-            message.c_str(),
-            "OK"
-        )->show();
-
-        log::info(
-            "Auto Deco applied: {} objects",
-            created
-        );
-    }
-};
+            "Created {} objects!",
