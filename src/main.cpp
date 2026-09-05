@@ -3,10 +3,105 @@
 
 using namespace geode::prelude;
 
+class DraggablePanel : public CCLayer {
+protected:
+    CCMenu* m_menu = nullptr;
+    bool m_dragging = false;
+    CCPoint m_touchOffset = CCPoint(0, 0);
+
+public:
+    static DraggablePanel* create(CCMenu* menu) {
+        auto ret = new DraggablePanel();
+
+        if (ret && ret->init()) {
+            ret->m_menu = menu;
+            ret->autorelease();
+            return ret;
+        }
+
+        delete ret;
+        return nullptr;
+    }
+
+    bool init() {
+        if (!CCLayer::init())
+            return false;
+
+        this->setTouchEnabled(true);
+
+        return true;
+    }
+
+    void registerWithTouchDispatcher() {
+        CCDirector::sharedDirector()
+            ->getTouchDispatcher()
+            ->addTargetedDelegate(this, -500, true);
+    }
+
+    bool ccTouchBegan(CCTouch* touch, CCEvent*) {
+        if (!m_menu)
+            return false;
+
+        auto location = this->convertTouchToNodeSpace(touch);
+
+        // The draggable area is the top part of the panel.
+        if (location.y < 20.0f || location.y > 75.0f)
+            return false;
+
+        auto panelPosition = m_menu->getPosition();
+
+        m_touchOffset = CCPoint(
+            location.x - panelPosition.x,
+            location.y - panelPosition.y
+        );
+
+        m_dragging = true;
+
+        return true;
+    }
+
+    void ccTouchMoved(CCTouch* touch, CCEvent*) {
+        if (!m_dragging || !m_menu)
+            return;
+
+        auto location = this->convertTouchToNodeSpace(touch);
+
+        CCPoint newPosition(
+            location.x - m_touchOffset.x,
+            location.y - m_touchOffset.y
+        );
+
+        auto winSize = CCDirector::sharedDirector()->getWinSize();
+
+        // Keep the panel on screen.
+        float minX = 20.0f;
+        float minY = 20.0f;
+
+        float maxX = winSize.width - 250.0f;
+        float maxY = winSize.height - 20.0f;
+
+        newPosition.x = std::max(minX, newPosition.x);
+        newPosition.y = std::max(minY, newPosition.y);
+
+        newPosition.x = std::min(maxX, newPosition.x);
+        newPosition.y = std::min(maxY, newPosition.y);
+
+        m_menu->setPosition(newPosition);
+    }
+
+    void ccTouchEnded(CCTouch*, CCEvent*) {
+        m_dragging = false;
+    }
+
+    void ccTouchCancelled(CCTouch*, CCEvent*) {
+        m_dragging = false;
+    }
+};
+
+
 class $modify(AutoDecoEditorUI, EditorUI) {
     struct TemplateObject {
         int objectID = 0;
-
         CCPoint offset = CCPoint(0, 0);
 
         float scale = 1.0f;
@@ -21,12 +116,7 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         bool hasTemplate = false;
 
         CCMenu* menu = nullptr;
-
-        // 0 = middle-left
-        // 1 = middle-right
-        // 2 = top-left
-        // 3 = top-right
-        int menuPosition = 1;
+        DraggablePanel* dragPanel = nullptr;
     };
 
     bool init(LevelEditorLayer* editorLayer) {
@@ -42,14 +132,14 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         if (!menu)
             return false;
 
-        menu->setPosition(0, 0);
+        menu->setPosition(
+            CCDirector::sharedDirector()->getWinSize().width - 270.0f,
+            CCDirector::sharedDirector()->getWinSize().height / 2.0f
+        );
 
         fields->menu = menu;
 
-        // -------------------------
-        // SAVE
-        // -------------------------
-
+        // SAVE BUTTON
         auto saveSprite = ButtonSprite::create(
             "SAVE",
             50,
@@ -66,13 +156,10 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             menu_selector(AutoDecoEditorUI::onSaveTemplate)
         );
 
-        saveButton->setPosition(55, 40);
+        saveButton->setPosition(45, 40);
         menu->addChild(saveButton);
 
-        // -------------------------
-        // DECO
-        // -------------------------
-
+        // DECO BUTTON
         auto decoSprite = ButtonSprite::create(
             "DECO",
             50,
@@ -89,15 +176,12 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             menu_selector(AutoDecoEditorUI::onAutoDeco)
         );
 
-        decoButton->setPosition(135, 40);
+        decoButton->setPosition(125, 40);
         menu->addChild(decoButton);
 
-        // -------------------------
-        // MOVE
-        // -------------------------
-
-        auto moveSprite = ButtonSprite::create(
-            "MOVE",
+        // DRAG AREA
+        auto dragSprite = ButtonSprite::create(
+            "DRAG",
             50,
             true,
             "goldFont.fnt",
@@ -106,85 +190,41 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             0.6f
         );
 
-        auto moveButton = CCMenuItemSpriteExtra::create(
-            moveSprite,
+        auto dragButton = CCMenuItemSpriteExtra::create(
+            dragSprite,
             this,
-            menu_selector(AutoDecoEditorUI::onMoveMenu)
+            menu_selector(AutoDecoEditorUI::onDragButton)
         );
 
-        moveButton->setPosition(215, 40);
-        menu->addChild(moveButton);
+        dragButton->setPosition(205, 40);
+        menu->addChild(dragButton);
 
         this->addChild(menu);
 
-        updateMenuPosition();
+        // Touch layer for dragging.
+        auto dragPanel = DraggablePanel::create(menu);
+
+        if (dragPanel) {
+            dragPanel->setContentSize(
+                CCDirector::sharedDirector()->getWinSize()
+            );
+
+            dragPanel->setPosition(0, 0);
+
+            fields->dragPanel = dragPanel;
+
+            this->addChild(dragPanel);
+        }
 
         return true;
     }
 
-    void updateMenuPosition() {
-        auto fields = m_fields.self();
-
-        if (!fields->menu)
-            return;
-
-        auto winSize = CCDirector::sharedDirector()->getWinSize();
-
-        CCPoint position;
-
-        switch (fields->menuPosition) {
-            // Middle-left
-            case 0:
-                position = CCPoint(
-                    20,
-                    (winSize.height / 2.0f) - 40.0f
-                );
-                break;
-
-            // Middle-right
-            case 1:
-                position = CCPoint(
-                    winSize.width - 255.0f,
-                    (winSize.height / 2.0f) - 40.0f
-                );
-                break;
-
-            // Top-left
-            case 2:
-                position = CCPoint(
-                    20,
-                    winSize.height - 130.0f
-                );
-                break;
-
-            // Top-right
-            case 3:
-                position = CCPoint(
-                    winSize.width - 255.0f,
-                    winSize.height - 130.0f
-                );
-                break;
-
-            default:
-                position = CCPoint(
-                    winSize.width - 255.0f,
-                    (winSize.height / 2.0f) - 40.0f
-                );
-                break;
-        }
-
-        fields->menu->setPosition(position);
-    }
-
-    void onMoveMenu(CCObject*) {
-        auto fields = m_fields.self();
-
-        fields->menuPosition++;
-
-        if (fields->menuPosition > 3)
-            fields->menuPosition = 0;
-
-        updateMenuPosition();
+    void onDragButton(CCObject*) {
+        FLAlertLayer::create(
+            "Auto Deco",
+            "Drag the DRAG button to move the panel.",
+            "OK"
+        )->show();
     }
 
     void onSaveTemplate(CCObject*) {
@@ -204,8 +244,9 @@ class $modify(AutoDecoEditorUI, EditorUI) {
 
         fields->templateObjects.clear();
 
-        auto anchor =
-            static_cast<GameObject*>(selected->objectAtIndex(0));
+        auto anchor = static_cast<GameObject*>(
+            selected->objectAtIndex(0)
+        );
 
         if (!anchor) {
             FLAlertLayer::create(
@@ -220,8 +261,9 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         CCPoint anchorPosition = anchor->getPosition();
 
         for (unsigned int i = 0; i < selected->count(); i++) {
-            auto object =
-                static_cast<GameObject*>(selected->objectAtIndex(i));
+            auto object = static_cast<GameObject*>(
+                selected->objectAtIndex(i)
+            );
 
             if (!object)
                 continue;
@@ -256,19 +298,14 @@ class $modify(AutoDecoEditorUI, EditorUI) {
 
         fields->hasTemplate = true;
 
-        auto message = fmt::format(
-            "Template saved!\n{} objects",
-            fields->templateObjects.size()
-        );
-
         FLAlertLayer::create(
             "Auto Deco",
-            message.c_str(),
+            "Template saved successfully!",
             "OK"
         )->show();
 
         log::info(
-            "Auto Deco saved {} objects",
+            "Saved {} template objects",
             fields->templateObjects.size()
         );
     }
@@ -300,8 +337,9 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             return;
         }
 
-        auto anchor =
-            static_cast<GameObject*>(selected->objectAtIndex(0));
+        auto anchor = static_cast<GameObject*>(
+            selected->objectAtIndex(0)
+        );
 
         if (!anchor) {
             FLAlertLayer::create(
@@ -339,5 +377,15 @@ class $modify(AutoDecoEditorUI, EditorUI) {
             created++;
         }
 
-        auto message = fmt::format(
-            "Created {} objects!",
+        log::info(
+            "Auto Deco created {} objects",
+            created
+        );
+
+        FLAlertLayer::create(
+            "Auto Deco",
+            "Decoration created successfully!",
+            "OK"
+        )->show();
+    }
+};
