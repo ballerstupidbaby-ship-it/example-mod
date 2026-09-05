@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <fstream>
+#include <filesystem>
 #include <vector>
 
 using namespace geode::prelude;
@@ -143,33 +144,10 @@ public:
         menu->setPosition(CCPointZero);
         this->addChild(menu, 5);
 
-        m_save = makeButton(
-            "SAVE",
-            55.f,
-            40.f,
-            0.48f
-        );
-
-        m_deco = makeButton(
-            "DECO",
-            130.f,
-            40.f,
-            0.48f
-        );
-
-        m_style = makeButton(
-            "STYLE 1",
-            215.f,
-            40.f,
-            0.42f
-        );
-
-        m_copy = makeButton(
-            "COPY",
-            305.f,
-            40.f,
-            0.48f
-        );
+        m_save = makeButton("SAVE", 55.f, 40.f, 0.48f);
+        m_deco = makeButton("DECO", 130.f, 40.f, 0.48f);
+        m_style = makeButton("STYLE 1", 215.f, 40.f, 0.42f);
+        m_copy = makeButton("COPY", 305.f, 40.f, 0.48f);
 
         menu->addChild(m_save);
         menu->addChild(m_deco);
@@ -336,13 +314,10 @@ public:
         ) {
             if (m_pressed == m_deco)
                 onDeco();
-
             else if (m_pressed == m_style)
                 onStyle();
-
             else if (m_pressed == m_save)
                 onSave();
-
             else if (m_pressed == m_copy)
                 onCopy();
         }
@@ -405,7 +380,14 @@ public:
             Mod::get()->getSaveDir() /
             "decorations";
 
-        utils::file::createDirectoryAll(dir);
+        auto result =
+            utils::file::createDirectoryAll(dir);
+
+        if (!result) {
+            log::warn(
+                "Failed to create decorations directory"
+            );
+        }
 
         return dir;
     }
@@ -477,7 +459,7 @@ public:
         int n = 1;
 
         while (
-            utils::file::fileExists(
+            std::filesystem::exists(
                 designPath(n)
             )
         ) {
@@ -549,7 +531,7 @@ public:
 
         if (
             source < 1 ||
-            !utils::file::fileExists(
+            !std::filesystem::exists(
                 designPath(source)
             )
         ) {
@@ -604,12 +586,13 @@ public:
             );
         }
 
-        if (
-            !utils::file::writeString(
+        auto resultWrite =
+            utils::file::writeString(
                 destPath,
                 text
-            ).isOk()
-        ) {
+            );
+
+        if (!resultWrite) {
             FLAlertLayer::create(
                 "Auto Deco",
                 "Couldn't copy the design.",
@@ -795,4 +778,3 @@ class $modify(
         return true;
     }
 };
-``` [❶](code://python)
