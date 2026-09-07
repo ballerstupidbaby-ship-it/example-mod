@@ -2,6 +2,7 @@
 #include <Geode/modify/EditorUI.hpp>
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -134,7 +135,7 @@ static std::vector<std::filesystem::path> getBlueprints() {
     return result;
 }
 
-class BlueprintMenu : public CCLayer {
+class BlueprintMenu : public CCLayer, public CCKeypadDelegate {
 
 protected:
 
@@ -198,6 +199,8 @@ protected:
 
         m_editor = editor;
 
+        this->setKeypadEnabled(true);
+
         auto win =
             CCDirector::sharedDirector()->getWinSize();
 
@@ -219,9 +222,23 @@ protected:
                 m_panelHeight
             );
 
+        float panelX =
+            std::clamp(
+                (win.width - m_panelWidth) / 2.f,
+                0.f,
+                std::max(0.f, win.width - m_panelWidth)
+            );
+
+        float panelY =
+            std::clamp(
+                (win.height - m_panelHeight) / 2.f,
+                0.f,
+                std::max(0.f, win.height - m_panelHeight)
+            );
+
         panel->setPosition(
-            (win.width - m_panelWidth) / 2.f,
-            (win.height - m_panelHeight) / 2.f
+            panelX,
+            panelY
         );
 
         this->addChild(panel);
@@ -278,8 +295,8 @@ protected:
         addButton(
             m_closeMenu,
             "CLOSE",
-            m_panelWidth - 55.f,
-            m_panelHeight - 25.f,
+            m_panelWidth / 2.f,
+            20.f,
             TAG_CLOSE
         );
 
@@ -597,7 +614,7 @@ protected:
             m_pickerMenu,
             "BACK",
             m_panelWidth / 2.f,
-            55.f,
+            80.f,
             TAG_BACK
         );
 
@@ -1077,8 +1094,7 @@ protected:
                 break;
 
             case TAG_CLOSE:
-                clearGhost();
-                removeFromParentAndCleanup(true);
+                onClose();
                 break;
 
             default:
@@ -1086,7 +1102,17 @@ protected:
         }
     }
 
+    void onClose() {
+        clearGhost();
+        this->setKeypadEnabled(false);
+        removeFromParentAndCleanup(true);
+    }
+
 public:
+
+    void keyBackClicked() override {
+        onClose();
+    }
 
     static BlueprintMenu* create(
         EditorUI* editor
@@ -1122,6 +1148,16 @@ protected:
 
     EditorUI* m_editor = nullptr;
 
+    CCNode* m_button = nullptr;
+
+    bool m_dragging = false;
+
+    bool m_moved = false;
+
+    CCPoint m_lastTouchPos;
+
+    static constexpr float DRAG_THRESHOLD = 6.f;
+
     bool init(EditorUI* editor) {
 
         if (!CCLayer::init())
@@ -1129,35 +1165,39 @@ protected:
 
         m_editor = editor;
 
-        auto menu = CCMenu::create();
+        float savedX =
+            Mod::get()->getSavedValue<float>(
+                "blueprint-open-x",
+                70.f
+            );
 
-        menu->setPosition(0, 0);
-
-        this->addChild(menu);
+        float savedY =
+            Mod::get()->getSavedValue<float>(
+                "blueprint-open-y",
+                70.f
+            );
 
         auto button =
-            CCMenuItemSpriteExtra::create(
-                ButtonSprite::create(
-                    "BLUEPRINT",
-                    90,
-                    true,
-                    "goldFont.fnt",
-                    "GJ_button_01.png",
-                    25,
-                    0.55f
-                ),
-                this,
-                menu_selector(
-                    BlueprintOpenButton::onOpen
-                )
+            ButtonSprite::create(
+                "BLUEPRINT",
+                90,
+                true,
+                "goldFont.fnt",
+                "GJ_button_01.png",
+                25,
+                0.55f
             );
 
         button->setPosition(
-            70.f,
-            70.f
+            savedX,
+            savedY
         );
 
-        menu->addChild(button);
+        this->addChild(button);
+
+        m_button = button;
+
+        this->setTouchEnabled(true);
 
         this->setID(
             "blueprint.open"_spr
@@ -1166,7 +1206,104 @@ protected:
         return true;
     }
 
-    void onOpen(CCObject*) {
+    void registerWithTouchDispatcher() override {
+
+        CCDirector::sharedDirector()
+            ->getTouchDispatcher()
+            ->addTargetedDelegate(
+                this,
+                -50,
+                true
+            );
+    }
+
+    bool ccTouchBegan(
+        CCTouch* touch,
+        CCEvent*
+    ) override {
+
+        if (!m_button)
+            return false;
+
+        auto local =
+            this->convertTouchToNodeSpace(touch);
+
+        if (!m_button->boundingBox().containsPoint(local))
+            return false;
+
+        m_dragging = true;
+
+        m_moved = false;
+
+        m_lastTouchPos = touch->getLocation();
+
+        return true;
+    }
+
+    void ccTouchMoved(
+        CCTouch* touch,
+        CCEvent*
+    ) override {
+
+        if (!m_dragging || !m_button)
+            return;
+
+        auto loc = touch->getLocation();
+
+        auto delta =
+            loc - m_lastTouchPos;
+
+        if (
+            std::fabs(delta.x) > DRAG_THRESHOLD ||
+            std::fabs(delta.y) > DRAG_THRESHOLD
+        ) {
+            m_moved = true;
+        }
+
+        m_button->setPosition(
+            m_button->getPosition() + delta
+        );
+
+        m_lastTouchPos = loc;
+    }
+
+    void ccTouchEnded(
+        CCTouch* touch,
+        CCEvent*
+    ) override {
+
+        if (!m_dragging)
+            return;
+
+        m_dragging = false;
+
+        if (m_moved) {
+
+            Mod::get()->setSavedValue(
+                "blueprint-open-x",
+                m_button->getPositionX()
+            );
+
+            Mod::get()->setSavedValue(
+                "blueprint-open-y",
+                m_button->getPositionY()
+            );
+
+        } else {
+
+            onOpen();
+        }
+    }
+
+    void ccTouchCancelled(
+        CCTouch*,
+        CCEvent*
+    ) override {
+
+        m_dragging = false;
+    }
+
+    void onOpen() {
 
         auto menu =
             BlueprintMenu::create(
