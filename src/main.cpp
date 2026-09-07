@@ -135,7 +135,7 @@ static std::vector<std::filesystem::path> getBlueprints() {
     return result;
 }
 
-class BlueprintMenu : public CCLayer, public CCKeypadDelegate {
+class BlueprintMenu : public CCLayer {
 
 protected:
 
@@ -1189,8 +1189,10 @@ protected:
             );
 
         button->setPosition(
-            savedX,
-            savedY
+            ccp(
+                savedX,
+                savedY
+            )
         );
 
         this->addChild(button);
