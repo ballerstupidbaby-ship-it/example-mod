@@ -138,13 +138,36 @@ class BlueprintMenu : public CCLayer {
 
 protected:
 
+    enum class Mode {
+        Main,
+        Picker,
+        Layers
+    };
+
+    static constexpr int TAG_SAVE = 1;
+    static constexpr int TAG_LOAD = 2;
+    static constexpr int TAG_PLACE_LAYER = 4;
+    static constexpr int TAG_PREV = 5;
+    static constexpr int TAG_NEXT = 6;
+    static constexpr int TAG_PLACE_ALL = 7;
+    static constexpr int TAG_X_MINUS = 8;
+    static constexpr int TAG_X_PLUS = 9;
+    static constexpr int TAG_Y_MINUS = 10;
+    static constexpr int TAG_Y_PLUS = 11;
+    static constexpr int TAG_CLOSE = 12;
+    static constexpr int TAG_NEW = 13;
+    static constexpr int TAG_BACK = 14;
+    static constexpr int TAG_PICKER_BASE = 100;
+    static constexpr int MAX_PICKER_ENTRIES = 6;
+
+    float const m_panelWidth = 560.f;
+    float const m_panelHeight = 460.f;
+
     EditorUI* m_editor = nullptr;
 
     Blueprint m_blueprint;
 
     bool m_hasBlueprint = false;
-
-    std::filesystem::path m_loadedPath;
 
     std::vector<int> m_layers;
 
@@ -158,6 +181,15 @@ protected:
 
     float m_blueprintX = 0.f;
     float m_blueprintY = 0.f;
+
+    CCMenu* m_mainMenu = nullptr;
+    CCMenu* m_pickerMenu = nullptr;
+    CCMenu* m_layerMenu = nullptr;
+    CCMenu* m_closeMenu = nullptr;
+
+    std::vector<std::filesystem::path> m_blueprintFiles;
+
+    Mode m_mode = Mode::Main;
 
     bool init(EditorUI* editor) {
 
@@ -180,19 +212,16 @@ protected:
 
         this->addChild(background);
 
-        float width = 560.f;
-        float height = 430.f;
-
         auto panel =
             CCLayerColor::create(
                 {30, 25, 42, 255},
-                width,
-                height
+                m_panelWidth,
+                m_panelHeight
             );
 
         panel->setPosition(
-            (win.width - width) / 2.f,
-            (win.height - height) / 2.f
+            (win.width - m_panelWidth) / 2.f,
+            (win.height - m_panelHeight) / 2.f
         );
 
         this->addChild(panel);
@@ -206,8 +235,8 @@ protected:
         title->setScale(0.7f);
 
         title->setPosition(
-            width / 2.f,
-            height - 35.f
+            m_panelWidth / 2.f - 40.f,
+            m_panelHeight - 35.f
         );
 
         panel->addChild(title);
@@ -221,135 +250,147 @@ protected:
         m_layerLabel->setScale(0.45f);
 
         m_layerLabel->setPosition(
-            width / 2.f,
-            height - 85.f
+            m_panelWidth / 2.f,
+            m_panelHeight - 85.f
         );
 
         panel->addChild(m_layerLabel);
 
         m_statusLabel =
             CCLabelBMFont::create(
-                "Select objects and save a blueprint",
+                "Select objects, then press SAVE",
                 "goldFont.fnt"
             );
 
         m_statusLabel->setScale(0.38f);
 
         m_statusLabel->setPosition(
-            width / 2.f,
-            height - 115.f
+            m_panelWidth / 2.f,
+            m_panelHeight - 115.f
         );
 
         panel->addChild(m_statusLabel);
 
-        auto menu = CCMenu::create();
-
-        menu->setPosition(0, 0);
-
-        panel->addChild(menu);
+        m_closeMenu = CCMenu::create();
+        m_closeMenu->setPosition(0, 0);
+        panel->addChild(m_closeMenu);
 
         addButton(
-            menu,
-            "SAVE",
-            85.f,
-            280.f,
-            1
-        );
-
-        addButton(
-            menu,
-            "LOAD",
-            195.f,
-            280.f,
-            2
-        );
-
-        addButton(
-            menu,
-            "GHOST",
-            305.f,
-            280.f,
-            3
-        );
-
-        addButton(
-            menu,
-            "PLACE LAYER",
-            445.f,
-            280.f,
-            4
-        );
-
-        addButton(
-            menu,
-            "PREV",
-            100.f,
-            205.f,
-            5
-        );
-
-        addButton(
-            menu,
-            "NEXT",
-            200.f,
-            205.f,
-            6
-        );
-
-        addButton(
-            menu,
-            "PLACE ALL",
-            350.f,
-            205.f,
-            7
-        );
-
-        addButton(
-            menu,
-            "X -",
-            100.f,
-            130.f,
-            8
-        );
-
-        addButton(
-            menu,
-            "X +",
-            200.f,
-            130.f,
-            9
-        );
-
-        addButton(
-            menu,
-            "Y -",
-            300.f,
-            130.f,
-            10
-        );
-
-        addButton(
-            menu,
-            "Y +",
-            400.f,
-            130.f,
-            11
-        );
-
-        addButton(
-            menu,
+            m_closeMenu,
             "CLOSE",
-            width / 2.f,
-            55.f,
-            12
+            m_panelWidth - 55.f,
+            m_panelHeight - 25.f,
+            TAG_CLOSE
         );
+
+        m_mainMenu = CCMenu::create();
+        m_mainMenu->setPosition(0, 0);
+        panel->addChild(m_mainMenu);
+
+        addButton(
+            m_mainMenu,
+            "SAVE",
+            m_panelWidth / 2.f - 110.f,
+            m_panelHeight / 2.f,
+            TAG_SAVE
+        );
+
+        addButton(
+            m_mainMenu,
+            "LOAD",
+            m_panelWidth / 2.f + 110.f,
+            m_panelHeight / 2.f,
+            TAG_LOAD
+        );
+
+        m_pickerMenu = CCMenu::create();
+        m_pickerMenu->setPosition(0, 0);
+        panel->addChild(m_pickerMenu);
+
+        m_layerMenu = CCMenu::create();
+        m_layerMenu->setPosition(0, 0);
+        panel->addChild(m_layerMenu);
+
+        addButton(
+            m_layerMenu,
+            "PREV",
+            110.f,
+            230.f,
+            TAG_PREV
+        );
+
+        addButton(
+            m_layerMenu,
+            "NEXT",
+            210.f,
+            230.f,
+            TAG_NEXT
+        );
+
+        addButton(
+            m_layerMenu,
+            "PLACE LAYER",
+            370.f,
+            230.f,
+            TAG_PLACE_LAYER
+        );
+
+        addButton(
+            m_layerMenu,
+            "PLACE ALL",
+            490.f,
+            230.f,
+            TAG_PLACE_ALL
+        );
+
+        addButton(
+            m_layerMenu,
+            "X -",
+            110.f,
+            160.f,
+            TAG_X_MINUS
+        );
+
+        addButton(
+            m_layerMenu,
+            "X +",
+            210.f,
+            160.f,
+            TAG_X_PLUS
+        );
+
+        addButton(
+            m_layerMenu,
+            "Y -",
+            370.f,
+            160.f,
+            TAG_Y_MINUS
+        );
+
+        addButton(
+            m_layerMenu,
+            "Y +",
+            490.f,
+            160.f,
+            TAG_Y_PLUS
+        );
+
+        addButton(
+            m_layerMenu,
+            "NEW BLUEPRINT",
+            m_panelWidth / 2.f,
+            90.f,
+            TAG_NEW
+        );
+
+        setMode(Mode::Main);
 
         return true;
     }
 
     void addButton(
         CCMenu* menu,
-        char const* text,
+        std::string const& text,
         float x,
         float y,
         int tag
@@ -358,7 +399,7 @@ protected:
         auto button =
             CCMenuItemSpriteExtra::create(
                 ButtonSprite::create(
-                    text,
+                    text.c_str(),
                     95,
                     true,
                     "goldFont.fnt",
@@ -377,6 +418,39 @@ protected:
         button->setPosition(x, y);
 
         menu->addChild(button);
+    }
+
+    void setMode(Mode mode) {
+
+        m_mode = mode;
+
+        m_mainMenu->setVisible(mode == Mode::Main);
+        m_pickerMenu->setVisible(mode == Mode::Picker);
+        m_layerMenu->setVisible(mode == Mode::Layers);
+
+        if (mode == Mode::Main) {
+
+            if (!m_hasBlueprint) {
+
+                m_layerLabel->setString(
+                    "NO BLUEPRINT"
+                );
+
+                m_statusLabel->setString(
+                    "Select objects, then press SAVE"
+                );
+            }
+
+        } else if (mode == Mode::Picker) {
+
+            m_layerLabel->setString(
+                "CHOOSE A BLUEPRINT"
+            );
+
+            m_statusLabel->setString(
+                "Select where it should start first"
+            );
+        }
     }
 
     std::vector<GameObject*> getSelected() {
@@ -424,7 +498,7 @@ protected:
         auto anchorPos =
             anchor->getPosition();
 
-        m_blueprint.objects.clear();
+        Blueprint toSave;
 
         for (auto object : selected) {
 
@@ -453,10 +527,10 @@ protected:
             data.z =
                 object->getZOrder();
 
-            m_blueprint.objects.push_back(data);
+            toSave.objects.push_back(data);
         }
 
-        m_blueprint.name =
+        toSave.name =
             "Blueprint_" +
             std::to_string(
                 getBlueprints().size() + 1
@@ -465,12 +539,12 @@ protected:
         auto path =
             getBlueprintFolder() /
             (
-                m_blueprint.name +
+                toSave.name +
                 ".blueprint"
             );
 
         if (!saveBlueprint(
-            m_blueprint,
+            toSave,
             path
         )) {
 
@@ -482,13 +556,127 @@ protected:
             return false;
         }
 
-        m_loadedPath = path;
+        showMessage(
+            "Blueprint",
+            fmt::format(
+                "Saved {} objects as {}. Use LOAD to place it.",
+                toSave.objects.size(),
+                toSave.name
+            ).c_str()
+        );
+
+        setMode(Mode::Main);
+
+        return true;
+    }
+
+    void openPicker() {
+
+        m_blueprintFiles = getBlueprints();
+
+        if (m_blueprintFiles.empty()) {
+
+            showMessage(
+                "Blueprint",
+                "No saved blueprints yet. Select objects and press SAVE first."
+            );
+
+            return;
+        }
+
+        rebuildPickerMenu();
+
+        setMode(Mode::Picker);
+    }
+
+    void rebuildPickerMenu() {
+
+        m_pickerMenu->removeAllChildrenWithCleanup(true);
+
+        addButton(
+            m_pickerMenu,
+            "BACK",
+            m_panelWidth / 2.f,
+            55.f,
+            TAG_BACK
+        );
+
+        float y = m_panelHeight - 160.f;
+
+        int shown =
+            std::min(
+                static_cast<int>(m_blueprintFiles.size()),
+                MAX_PICKER_ENTRIES
+            );
+
+        for (int i = 0; i < shown; ++i) {
+
+            auto name =
+                m_blueprintFiles[i]
+                    .stem()
+                    .string();
+
+            addButton(
+                m_pickerMenu,
+                name,
+                m_panelWidth / 2.f,
+                y,
+                TAG_PICKER_BASE + i
+            );
+
+            y -= 40.f;
+        }
+    }
+
+    void loadPicked(int index) {
+
+        if (
+            index < 0 ||
+            index >= static_cast<int>(m_blueprintFiles.size())
+        )
+            return;
+
+        auto selected = getSelected();
+
+        if (selected.empty()) {
+
+            showMessage(
+                "Blueprint",
+                "Select the object where the blueprint should start, then press LOAD again."
+            );
+
+            setMode(Mode::Main);
+
+            return;
+        }
+
+        Blueprint loaded;
+
+        if (!loadBlueprint(
+            m_blueprintFiles[index],
+            loaded
+        )) {
+
+            showMessage(
+                "Blueprint",
+                "Failed to load blueprint."
+            );
+
+            setMode(Mode::Main);
+
+            return;
+        }
+
+        m_blueprint = loaded;
 
         m_hasBlueprint = true;
 
         rebuildLayers();
 
         m_currentLayer = 0;
+
+        auto anchorPos =
+            selected.front()->getPosition();
 
         m_blueprintX = anchorPos.x;
         m_blueprintY = anchorPos.y;
@@ -497,15 +685,18 @@ protected:
 
         showGhost();
 
-        showMessage(
-            "Blueprint",
-            fmt::format(
-                "Saved {} objects.",
-                m_blueprint.objects.size()
-            ).c_str()
-        );
+        setMode(Mode::Layers);
+    }
 
-        return true;
+    void newBlueprint() {
+
+        clearGhost();
+
+        m_hasBlueprint = false;
+
+        m_blueprint = Blueprint{};
+
+        setMode(Mode::Main);
     }
 
     void rebuildLayers() {
@@ -541,7 +732,7 @@ protected:
             );
 
             m_statusLabel->setString(
-                "Select objects and save a blueprint"
+                "Select objects, then press SAVE"
             );
 
             return;
@@ -647,64 +838,6 @@ protected:
                 sprite
             );
         }
-    }
-
-    void loadFirstBlueprint() {
-
-        auto files = getBlueprints();
-
-        if (files.empty()) {
-
-            showMessage(
-                "Blueprint",
-                "No saved blueprints yet."
-            );
-
-            return;
-        }
-
-        Blueprint loaded;
-
-        if (!loadBlueprint(
-            files.front(),
-            loaded
-        )) {
-
-            showMessage(
-                "Blueprint",
-                "Failed to load blueprint."
-            );
-
-            return;
-        }
-
-        m_blueprint = loaded;
-
-        m_loadedPath = files.front();
-
-        m_hasBlueprint = true;
-
-        rebuildLayers();
-
-        m_currentLayer = 0;
-
-        auto selected = getSelected();
-
-        if (!selected.empty()) {
-
-            auto position =
-                selected.front()->getPosition();
-
-            m_blueprintX =
-                position.x;
-
-            m_blueprintY =
-                position.y;
-        }
-
-        updateUI();
-
-        showGhost();
     }
 
     void placeLayer() {
@@ -884,53 +1017,66 @@ protected:
                 sender
             );
 
-        switch (button->getTag()) {
+        int tag = button->getTag();
 
-            case 1:
+        if (tag >= TAG_PICKER_BASE) {
+
+            loadPicked(tag - TAG_PICKER_BASE);
+
+            return;
+        }
+
+        switch (tag) {
+
+            case TAG_SAVE:
                 createFromSelection();
                 break;
 
-            case 2:
-                loadFirstBlueprint();
+            case TAG_LOAD:
+                openPicker();
                 break;
 
-            case 3:
-                showGhost();
+            case TAG_BACK:
+                setMode(Mode::Main);
                 break;
 
-            case 4:
+            case TAG_PLACE_LAYER:
                 placeLayer();
                 break;
 
-            case 5:
+            case TAG_PREV:
                 previousLayer();
                 break;
 
-            case 6:
+            case TAG_NEXT:
                 nextLayer();
                 break;
 
-            case 7:
+            case TAG_PLACE_ALL:
                 placeAll();
                 break;
 
-            case 8:
+            case TAG_X_MINUS:
                 moveX(-10.f);
                 break;
 
-            case 9:
+            case TAG_X_PLUS:
                 moveX(10.f);
                 break;
 
-            case 10:
+            case TAG_Y_MINUS:
                 moveY(-10.f);
                 break;
 
-            case 11:
+            case TAG_Y_PLUS:
                 moveY(10.f);
                 break;
 
-            case 12:
+            case TAG_NEW:
+                newBlueprint();
+                break;
+
+            case TAG_CLOSE:
                 clearGhost();
                 removeFromParentAndCleanup(true);
                 break;
@@ -968,6 +1114,7 @@ public:
         clearGhost();
     }
 };
+
 
 class BlueprintOpenButton : public CCLayer {
 
