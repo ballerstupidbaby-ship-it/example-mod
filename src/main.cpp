@@ -158,7 +158,10 @@ protected:
     static constexpr int TAG_CLOSE = 12;
     static constexpr int TAG_NEW = 13;
     static constexpr int TAG_BACK = 14;
+
     static constexpr int TAG_PICKER_BASE = 100;
+    static constexpr int TAG_DELETE_BASE = 200;
+
     static constexpr int MAX_PICKER_ENTRIES = 6;
 
     float const m_panelWidth = 560.f;
@@ -614,7 +617,7 @@ protected:
             m_pickerMenu,
             "BACK",
             m_panelWidth / 2.f,
-            80.f,
+            60.f,
             TAG_BACK
         );
 
@@ -636,13 +639,74 @@ protected:
             addButton(
                 m_pickerMenu,
                 name,
-                m_panelWidth / 2.f,
+                190.f,
                 y,
                 TAG_PICKER_BASE + i
             );
 
-            y -= 40.f;
+            addButton(
+                m_pickerMenu,
+                "DELETE",
+                390.f,
+                y,
+                TAG_DELETE_BASE + i
+            );
+
+            y -= 50.f;
         }
+    }
+
+    void deletePicked(int index) {
+
+        if (
+            index < 0 ||
+            index >= static_cast<int>(m_blueprintFiles.size())
+        )
+            return;
+
+        auto path = m_blueprintFiles[index];
+
+        std::error_code ec;
+
+        bool removed =
+            std::filesystem::remove(
+                path,
+                ec
+            );
+
+        if (
+            !removed ||
+            ec
+        ) {
+
+            showMessage(
+                "Blueprint",
+                "Failed to delete blueprint."
+            );
+
+            return;
+        }
+
+        m_blueprintFiles = getBlueprints();
+
+        if (m_blueprintFiles.empty()) {
+
+            setMode(Mode::Main);
+
+            showMessage(
+                "Blueprint",
+                "Blueprint deleted."
+            );
+
+            return;
+        }
+
+        rebuildPickerMenu();
+
+        showMessage(
+            "Blueprint",
+            "Blueprint deleted."
+        );
     }
 
     void loadPicked(int index) {
@@ -1036,9 +1100,26 @@ protected:
 
         int tag = button->getTag();
 
-        if (tag >= TAG_PICKER_BASE) {
+        if (
+            tag >= TAG_DELETE_BASE &&
+            tag < TAG_DELETE_BASE + MAX_PICKER_ENTRIES
+        ) {
 
-            loadPicked(tag - TAG_PICKER_BASE);
+            deletePicked(
+                tag - TAG_DELETE_BASE
+            );
+
+            return;
+        }
+
+        if (
+            tag >= TAG_PICKER_BASE &&
+            tag < TAG_PICKER_BASE + MAX_PICKER_ENTRIES
+        ) {
+
+            loadPicked(
+                tag - TAG_PICKER_BASE
+            );
 
             return;
         }
