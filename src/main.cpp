@@ -1,17 +1,16 @@
 #include <Geode/Geode.hpp>
 #include <Geode/modify/EditorUI.hpp>
-#include <Geode/ui/ScrollLayer.hpp>
-#include <Geode/utils/file.hpp>
+
 #include <algorithm>
-#include <cctype>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <string>
 #include <vector>
 
 using namespace geode::prelude;
 
-struct SavedPiece {
+struct BlueprintObject {
     int id = 0;
     float x = 0.f;
     float y = 0.f;
@@ -21,165 +20,144 @@ struct SavedPiece {
     int z = 0;
 };
 
-struct SavedDecoration {
+struct Blueprint {
     std::string name;
-    std::vector<SavedPiece> pieces;
+    std::vector<BlueprintObject> objects;
 };
 
-static std::filesystem::path decoFolder() {
-    auto dir = Mod::get()->getSaveDir() / "decorations";
+static std::filesystem::path getBlueprintFolder() {
+    auto folder = Mod::get()->getSaveDir() / "blueprints";
+
     std::error_code ec;
-    std::filesystem::create_directories(dir, ec);
-    return dir;
+    std::filesystem::create_directories(folder, ec);
+
+    return folder;
 }
 
-static std::string safeFileName(std::string name) {
-    if (name.empty())
-        name = "Decoration";
-
-    for (auto& c : name) {
-        if (!(std::isalnum(static_cast<unsigned char>(c)) ||
-              c == '_' || c == '-')) {
-            c = '_';
-        }
-    }
-
-    return name;
-}
-
-static bool saveDecorationFile(
-    SavedDecoration const& deco,
+static bool saveBlueprint(
+    Blueprint const& blueprint,
     std::filesystem::path const& path
 ) {
-    std::ofstream out(path);
+    std::ofstream file(path);
 
-    if (!out)
+    if (!file)
         return false;
 
-    out << "AUTODECO1\n";
-    out << deco.name << "\n";
-    out << deco.pieces.size() << "\n";
+    file << "BLUEPRINT1\n";
+    file << blueprint.name << "\n";
+    file << blueprint.objects.size() << "\n";
 
-    for (auto const& p : deco.pieces) {
-        out << p.id << ' '
-            << p.x << ' '
-            << p.y << ' '
-            << p.scale << ' '
-            << p.rotation << ' '
-            << p.opacity << ' '
-            << p.z << "\n";
+    for (auto const& obj : blueprint.objects) {
+        file
+            << obj.id << " "
+            << obj.x << " "
+            << obj.y << " "
+            << obj.scale << " "
+            << obj.rotation << " "
+            << obj.opacity << " "
+            << obj.z << "\n";
     }
 
     return true;
 }
 
-static bool loadDecorationFile(
+static bool loadBlueprint(
     std::filesystem::path const& path,
-    SavedDecoration& outDeco
+    Blueprint& blueprint
 ) {
-    std::ifstream in(path);
+    std::ifstream file(path);
 
-    if (!in)
+    if (!file)
         return false;
 
     std::string header;
-    std::getline(in, header);
 
-    if (header != "AUTODECO1")
+    std::getline(file, header);
+
+    if (header != "BLUEPRINT1")
         return false;
 
-    std::getline(in, outDeco.name);
+    std::getline(file, blueprint.name);
 
     size_t count = 0;
 
-    if (!(in >> count))
+    if (!(file >> count))
         return false;
 
-    outDeco.pieces.clear();
-    outDeco.pieces.reserve(count);
+    blueprint.objects.clear();
+    blueprint.objects.reserve(count);
 
     for (size_t i = 0; i < count; ++i) {
-        SavedPiece p;
+        BlueprintObject obj;
 
-        if (!(in >>
-            p.id >>
-            p.x >>
-            p.y >>
-            p.scale >>
-            p.rotation >>
-            p.opacity >>
-            p.z)) {
+        if (!(file
+            >> obj.id
+            >> obj.x
+            >> obj.y
+            >> obj.scale
+            >> obj.rotation
+            >> obj.opacity
+            >> obj.z
+        )) {
             return false;
         }
 
-        outDeco.pieces.push_back(p);
+        blueprint.objects.push_back(obj);
     }
 
     return true;
 }
 
-static std::vector<std::filesystem::path> getDecorationFiles() {
-    std::vector<std::filesystem::path> files;
+static std::vector<std::filesystem::path> getBlueprints() {
+    std::vector<std::filesystem::path> result;
 
-    auto dir = decoFolder();
+    auto folder = getBlueprintFolder();
 
     std::error_code ec;
 
     for (auto const& entry :
-         std::filesystem::directory_iterator(dir, ec)) {
+        std::filesystem::directory_iterator(folder, ec)) {
 
         if (ec)
             break;
 
-        if (entry.is_regular_file() &&
-            entry.path().extension() == ".deco") {
-
-            files.push_back(entry.path());
+        if (
+            entry.is_regular_file() &&
+            entry.path().extension() == ".blueprint"
+        ) {
+            result.push_back(entry.path());
         }
     }
 
-    std::sort(files.begin(), files.end());
+    std::sort(result.begin(), result.end());
 
-    return files;
+    return result;
 }
 
-static void showInfo(
-    std::string const& title,
-    std::string const& text
-) {
-    FLAlertLayer::create(
-        title.c_str(),
-        text.c_str(),
-        "OK"
-    )->show();
-}
-
-class AutoDecoMenu : public CCLayer {
+class BlueprintMenu : public CCLayer {
 
 protected:
 
     EditorUI* m_editor = nullptr;
 
-    CCLayerColor* m_dim = nullptr;
-    CCLayerColor* m_window = nullptr;
-    CCLayerColor* m_side = nullptr;
+    Blueprint m_blueprint;
 
-    CCLabelBMFont* m_pageTitle = nullptr;
+    bool m_hasBlueprint = false;
 
-    ScrollLayer* m_scroll = nullptr;
+    std::filesystem::path m_loadedPath;
 
-    CCMenu* m_tabMenu = nullptr;
-    CCMenu* m_contentMenu = nullptr;
+    std::vector<int> m_layers;
 
-    std::vector<CCMenuItemSpriteExtra*> m_tabs;
+    int m_currentLayer = 0;
 
-    int m_tab = 0;
+    CCNode* m_ghostLayer = nullptr;
 
-    // 0 = selected block
-    // 1 = all matching blocks
-    int m_applyMode = 0;
+    CCLabelBMFont* m_layerLabel = nullptr;
 
-    std::string m_selectedFile;
+    CCLabelBMFont* m_statusLabel = nullptr;
+
+    float m_blueprintX = 0.f;
+    float m_blueprintY = 0.f;
 
     bool init(EditorUI* editor) {
 
@@ -188,628 +166,220 @@ protected:
 
         m_editor = editor;
 
-        this->setTouchEnabled(true);
-
         auto win =
             CCDirector::sharedDirector()->getWinSize();
 
         this->setContentSize(win);
 
-        m_dim = CCLayerColor::create(
-            {0, 0, 0, 150},
-            win.width,
-            win.height
-        );
-
-        m_dim->setPosition(0, 0);
-
-        this->addChild(m_dim);
-
-        float margin = 18.f;
-
-        float width =
-            std::max(560.f, win.width - margin * 2.f);
-
-        float height =
-            std::max(320.f, win.height - margin * 2.f);
-
-        float left =
-            (win.width - width) / 2.f;
-
-        float bottom =
-            (win.height - height) / 2.f;
-
-        m_window = CCLayerColor::create(
-            {25, 21, 36, 255},
-            width,
-            height
-        );
-
-        m_window->setPosition(left, bottom);
-
-        this->addChild(m_window, 2);
-
-        auto header = CCLayerColor::create(
-            {37, 30, 52, 255},
-            width,
-            54.f
-        );
-
-        header->setPosition(
-            0,
-            height - 54.f
-        );
-
-        m_window->addChild(header);
-
-        auto title = CCLabelBMFont::create(
-            "AUTO DECO",
-            "goldFont.fnt"
-        );
-
-        title->setScale(0.75f);
-
-        title->setAnchorPoint({0.f, 0.5f});
-
-        title->setPosition(
-            20.f,
-            27.f
-        );
-
-        header->addChild(title);
-
-        auto closeMenu = CCMenu::create();
-
-        closeMenu->setPosition(
-            width - 28.f,
-            27.f
-        );
-
-        header->addChild(closeMenu);
-
-        auto close =
-            CCMenuItemSpriteExtra::create(
-                ButtonSprite::create(
-                    "X",
-                    38,
-                    true,
-                    "goldFont.fnt",
-                    "GJ_button_01.png",
-                    22,
-                    0.7f
-                ),
-                this,
-                menu_selector(
-                    AutoDecoMenu::onClose
-                )
+        auto background =
+            CCLayerColor::create(
+                {0, 0, 0, 160},
+                win.width,
+                win.height
             );
 
-        closeMenu->addChild(close);
+        this->addChild(background);
 
-        float sideW = 145.f;
+        float width = 560.f;
+        float height = 430.f;
 
-        m_side = CCLayerColor::create(
-            {31, 26, 44, 255},
-            sideW,
-            height - 54.f
+        auto panel =
+            CCLayerColor::create(
+                {30, 25, 42, 255},
+                width,
+                height
+            );
+
+        panel->setPosition(
+            (win.width - width) / 2.f,
+            (win.height - height) / 2.f
         );
 
-        m_side->setPosition(0, 0);
+        this->addChild(panel);
 
-        m_window->addChild(m_side);
-
-        m_tabMenu = CCMenu::create();
-
-        m_tabMenu->setPosition(0, 0);
-
-        m_tabMenu->setContentSize({
-            sideW,
-            height - 54.f
-        });
-
-        m_side->addChild(m_tabMenu);
-
-        addTab("BLOCKS", 0, 0);
-        addTab("SAVE DECO", 1, 1);
-        addTab("DECORATIONS", 2, 2);
-        addTab("SETTINGS", 3, 3);
-
-        float contentX =
-            sideW + 10.f;
-
-        float contentY = 10.f;
-
-        float contentW =
-            width - sideW - 20.f;
-
-        float contentH =
-            height - 74.f;
-
-        m_scroll = ScrollLayer::create(
-            {contentW, contentH},
-            true,
-            true
-        );
-
-        m_scroll->setPosition(
-            contentX,
-            contentY
-        );
-
-        m_scroll->m_contentLayer->setContentSize({
-            contentW,
-            900.f
-        });
-
-        m_window->addChild(
-            m_scroll,
-            2
-        );
-
-        m_pageTitle =
+        auto title =
             CCLabelBMFont::create(
-                "BLOCKS",
+                "BLUEPRINT BUILDER",
+                "goldFont.fnt"
+            );
+
+        title->setScale(0.7f);
+
+        title->setPosition(
+            width / 2.f,
+            height - 35.f
+        );
+
+        panel->addChild(title);
+
+        m_layerLabel =
+            CCLabelBMFont::create(
+                "NO BLUEPRINT",
                 "bigFont.fnt"
             );
 
-        m_pageTitle->setScale(0.55f);
+        m_layerLabel->setScale(0.45f);
 
-        m_pageTitle->setAnchorPoint({
-            0.f,
-            1.f
-        });
-
-        m_pageTitle->setPosition(
-            18.f,
-            865.f
+        m_layerLabel->setPosition(
+            width / 2.f,
+            height - 85.f
         );
 
-        m_scroll->m_contentLayer
-            ->addChild(m_pageTitle);
+        panel->addChild(m_layerLabel);
 
-        showTab(0);
+        m_statusLabel =
+            CCLabelBMFont::create(
+                "Select objects and save a blueprint",
+                "goldFont.fnt"
+            );
+
+        m_statusLabel->setScale(0.38f);
+
+        m_statusLabel->setPosition(
+            width / 2.f,
+            height - 115.f
+        );
+
+        panel->addChild(m_statusLabel);
+
+        auto menu = CCMenu::create();
+
+        menu->setPosition(0, 0);
+
+        panel->addChild(menu);
+
+        addButton(
+            menu,
+            "SAVE",
+            85.f,
+            280.f,
+            1
+        );
+
+        addButton(
+            menu,
+            "LOAD",
+            195.f,
+            280.f,
+            2
+        );
+
+        addButton(
+            menu,
+            "GHOST",
+            305.f,
+            280.f,
+            3
+        );
+
+        addButton(
+            menu,
+            "PLACE LAYER",
+            445.f,
+            280.f,
+            4
+        );
+
+        addButton(
+            menu,
+            "PREV",
+            100.f,
+            205.f,
+            5
+        );
+
+        addButton(
+            menu,
+            "NEXT",
+            200.f,
+            205.f,
+            6
+        );
+
+        addButton(
+            menu,
+            "PLACE ALL",
+            350.f,
+            205.f,
+            7
+        );
+
+        addButton(
+            menu,
+            "X -",
+            100.f,
+            130.f,
+            8
+        );
+
+        addButton(
+            menu,
+            "X +",
+            200.f,
+            130.f,
+            9
+        );
+
+        addButton(
+            menu,
+            "Y -",
+            300.f,
+            130.f,
+            10
+        );
+
+        addButton(
+            menu,
+            "Y +",
+            400.f,
+            130.f,
+            11
+        );
+
+        addButton(
+            menu,
+            "CLOSE",
+            width / 2.f,
+            55.f,
+            12
+        );
 
         return true;
     }
 
-    void addTab(
+    void addButton(
+        CCMenu* menu,
         char const* text,
-        int tag,
-        int index
+        float x,
+        float y,
+        int tag
     ) {
 
         auto button =
             CCMenuItemSpriteExtra::create(
                 ButtonSprite::create(
                     text,
-                    120,
+                    95,
                     true,
                     "goldFont.fnt",
                     "GJ_button_01.png",
                     25,
-                    0.55f
+                    0.5f
                 ),
                 this,
                 menu_selector(
-                    AutoDecoMenu::onTab
+                    BlueprintMenu::onButton
                 )
             );
 
         button->setTag(tag);
 
-        button->setPosition(
-            72.5f,
-            235.f - index * 58.f
-        );
+        button->setPosition(x, y);
 
-        m_tabMenu->addChild(button);
-
-        m_tabs.push_back(button);
+        menu->addChild(button);
     }
 
-    CCMenuItemSpriteExtra* addContentButton(
-        char const* text,
-        float x,
-        float y,
-        int tag = 0,
-        float scale = 0.7f
-    ) {
-
-        auto b =
-            CCMenuItemSpriteExtra::create(
-                ButtonSprite::create(
-                    text,
-                    120,
-                    true,
-                    "goldFont.fnt",
-                    "GJ_button_01.png",
-                    25,
-                    scale
-                ),
-                this,
-                menu_selector(
-                    AutoDecoMenu::onContentButton
-                )
-            );
-
-        b->setTag(tag);
-
-        b->setPosition(x, y);
-
-        m_contentMenu->addChild(b);
-
-        return b;
-    }
-
-    void clearContent() {
-
-        if (m_contentMenu)
-            m_contentMenu->removeFromParent();
-
-        m_contentMenu = CCMenu::create();
-
-        m_contentMenu->setPosition(0, 0);
-
-        m_contentMenu->setContentSize(
-            m_scroll->m_contentLayer
-                ->getContentSize()
-        );
-
-        m_scroll->m_contentLayer
-            ->addChild(m_contentMenu);
-
-        m_scroll->setContentOffset(
-            {0.f, 0.f},
-            false
-        );
-    }
-
-    void label(
-        char const* text,
-        float x,
-        float y,
-        float scale = 0.42f
-    ) {
-
-        auto l =
-            CCLabelBMFont::create(
-                text,
-                "goldFont.fnt"
-            );
-
-        l->setScale(scale);
-
-        l->setAnchorPoint({
-            0.f,
-            0.5f
-        });
-
-        l->setPosition(x, y);
-
-        m_contentMenu->addChild(l);
-    }
-
-    void showTab(int tab) {
-
-        m_tab = tab;
-
-        const char* titles[] = {
-            "BLOCKS",
-            "SAVE DECORATION",
-            "DECORATIONS",
-            "SETTINGS"
-        };
-
-        m_pageTitle->setString(
-            titles[tab]
-        );
-
-        clearContent();
-
-        if (tab == 0)
-            buildBlocks();
-
-        else if (tab == 1)
-            buildSave();
-
-        else if (tab == 2)
-            buildDecorations();
-
-        else
-            buildSettings();
-    }
-
-    void buildBlocks() {
-
-        label(
-            "Choose what Auto Deco should decorate.",
-            18.f,
-            820.f
-        );
-
-        label(
-            "Select a block in the editor first.",
-            18.f,
-            790.f
-        );
-
-        auto one =
-            addContentButton(
-                "ONE SELECTED",
-                100.f,
-                735.f,
-                10,
-                0.55f
-            );
-
-        auto all =
-            addContentButton(
-                "ALL MATCHING",
-                250.f,
-                735.f,
-                11,
-                0.55f
-            );
-
-        if (m_applyMode == 0)
-            one->setColor({
-                120,
-                210,
-                255
-            });
-
-        else
-            all->setColor({
-                120,
-                210,
-                255
-            });
-
-        addContentButton(
-            "DECORATE",
-            175.f,
-            650.f,
-            12,
-            0.75f
-        );
-
-        label(
-            "ONE SELECTED = only the block you picked.",
-            18.f,
-            585.f,
-            0.38f
-        );
-
-        label(
-            "ALL MATCHING = every block with the same ID.",
-            18.f,
-            555.f,
-            0.38f
-        );
-
-        std::string current =
-            "No decoration selected";
-
-        if (!m_selectedFile.empty())
-            current =
-                "Loaded: " + m_selectedFile;
-
-        label(
-            current.c_str(),
-            18.f,
-            500.f,
-            0.42f
-        );
-
-        if (!m_selectedFile.empty()) {
-
-            addContentButton(
-                "CLEAR",
-                175.f,
-                435.f,
-                13,
-                0.55f
-            );
-        }
-    }
-
-    void buildSave() {
-
-        label(
-            "Select the decoration pieces in the editor,",
-            18.f,
-            820.f
-        );
-
-        label(
-            "then press SAVE DECORATION.",
-            18.f,
-            790.f
-        );
-
-        label(
-            "The first selected object becomes the anchor.",
-            18.f,
-            745.f,
-            0.38f
-        );
-
-        addContentButton(
-            "SAVE DECORATION",
-            175.f,
-            665.f,
-            20,
-            0.65f
-        );
-
-        addContentButton(
-            "OPEN FOLDER",
-            175.f,
-            600.f,
-            21,
-            0.55f
-        );
-
-        label(
-            "Saved files are stored in the mod's",
-            18.f,
-            525.f,
-            0.38f
-        );
-
-        label(
-            "decorations folder.",
-            18.f,
-            495.f,
-            0.38f
-        );
-    }
-
-    void buildDecorations() {
-
-        auto files =
-            getDecorationFiles();
-
-        if (files.empty()) {
-
-            label(
-                "No saved decorations yet.",
-                18.f,
-                800.f
-            );
-
-            label(
-                "Use SAVE DECO after selecting your pieces.",
-                18.f,
-                760.f,
-                0.38f
-            );
-
-            return;
-        }
-
-        float y = 805.f;
-
-        int tag = 100;
-
-        for (auto const& path : files) {
-
-            SavedDecoration d;
-
-            if (!loadDecorationFile(
-                path,
-                d
-            ))
-                continue;
-
-            auto row =
-                CCMenuItemSpriteExtra::create(
-                    ButtonSprite::create(
-                        d.name.c_str(),
-                        120,
-                        true,
-                        "goldFont.fnt",
-                        "GJ_button_01.png",
-                        25,
-                        0.55f
-                    ),
-                    this,
-                    menu_selector(
-                        AutoDecoMenu::onContentButton
-                    )
-                );
-
-            row->setTag(tag++);
-
-            row->setUserObject(
-                CCString::create(
-                    path.string()
-                )
-            );
-
-            row->setPosition(
-                95.f,
-                y
-            );
-
-            m_contentMenu->addChild(row);
-
-            auto load =
-                addContentButton(
-                    "LOAD",
-                    225.f,
-                    y,
-                    row->getTag() + 1000,
-                    0.48f
-                );
-
-            load->setUserObject(
-                CCString::create(
-                    path.string()
-                )
-            );
-
-            auto del =
-                addContentButton(
-                    "DELETE",
-                    325.f,
-                    y,
-                    row->getTag() + 2000,
-                    0.48f
-                );
-
-            del->setUserObject(
-                CCString::create(
-                    path.string()
-                )
-            );
-
-            y -= 58.f;
-
-            if (y < 80.f)
-                break;
-        }
-    }
-
-    void buildSettings() {
-
-        label(
-            "Auto Deco",
-            18.f,
-            820.f,
-            0.5f
-        );
-
-        label(
-            "Saved decorations use the exact selected pieces:",
-            18.f,
-            770.f,
-            0.38f
-        );
-
-        label(
-            "object ID, position, scale, rotation, opacity and Z order.",
-            18.f,
-            740.f,
-            0.38f
-        );
-
-        label(
-            "No separate drag button is used.",
-            18.f,
-            680.f,
-            0.38f
-        );
-
-        label(
-            "The editor menu uses smooth scrolling for long lists.",
-            18.f,
-            650.f,
-            0.38f
-        );
-    }
-
-    std::vector<GameObject*> selectedObjects() const {
+    std::vector<GameObject*> getSelected() {
 
         std::vector<GameObject*> result;
 
@@ -820,9 +390,7 @@ protected:
         auto count =
             m_editor->m_selectedObjects->count();
 
-        for (unsigned i = 0;
-             i < count;
-             ++i) {
+        for (unsigned i = 0; i < count; ++i) {
 
             auto obj =
                 static_cast<GameObject*>(
@@ -837,414 +405,552 @@ protected:
         return result;
     }
 
-    bool saveCurrentSelection() {
+    bool createFromSelection() {
 
-        auto selected =
-            selectedObjects();
+        auto selected = getSelected();
 
         if (selected.empty()) {
 
-            showInfo(
-                "Auto Deco",
-                "Select your decoration pieces first."
+            showMessage(
+                "Blueprint",
+                "Select the decoration objects first."
             );
 
             return false;
         }
 
-        auto anchor =
-            selected.front();
-
-        SavedDecoration d;
-
-        d.name = fmt::format(
-            "Decoration_{}",
-            getDecorationFiles().size() + 1
-        );
+        auto anchor = selected.front();
 
         auto anchorPos =
             anchor->getPosition();
 
-        for (auto obj : selected) {
+        m_blueprint.objects.clear();
 
-            SavedPiece p;
+        for (auto object : selected) {
 
-            p.id =
-                obj->m_objectID;
+            BlueprintObject data;
 
-            p.x =
-                obj->getPositionX()
+            data.id =
+                object->m_objectID;
+
+            data.x =
+                object->getPositionX()
                 - anchorPos.x;
 
-            p.y =
-                obj->getPositionY()
+            data.y =
+                object->getPositionY()
                 - anchorPos.y;
 
-            p.scale =
-                obj->getScale();
+            data.scale =
+                object->getScale();
 
-            p.rotation =
-                obj->getRotation();
+            data.rotation =
+                object->getRotation();
 
-            p.opacity =
-                obj->getOpacity();
+            data.opacity =
+                object->getOpacity();
 
-            p.z =
-                obj->getZOrder();
+            data.z =
+                object->getZOrder();
 
-            d.pieces.push_back(p);
+            m_blueprint.objects.push_back(data);
         }
 
-        auto path =
-            decoFolder() /
-            (safeFileName(d.name) + ".deco");
+        m_blueprint.name =
+            "Blueprint_" +
+            std::to_string(
+                getBlueprints().size() + 1
+            );
 
-        if (!saveDecorationFile(
-            d,
+        auto path =
+            getBlueprintFolder() /
+            (
+                m_blueprint.name +
+                ".blueprint"
+            );
+
+        if (!saveBlueprint(
+            m_blueprint,
             path
         )) {
 
-            showInfo(
-                "Auto Deco",
-                "Couldn't save the decoration."
+            showMessage(
+                "Blueprint",
+                "Failed to save blueprint."
             );
 
             return false;
         }
 
-        m_selectedFile =
-            path.string();
+        m_loadedPath = path;
 
-        showInfo(
-            "Auto Deco",
+        m_hasBlueprint = true;
+
+        rebuildLayers();
+
+        m_currentLayer = 0;
+
+        m_blueprintX = anchorPos.x;
+        m_blueprintY = anchorPos.y;
+
+        updateUI();
+
+        showGhost();
+
+        showMessage(
+            "Blueprint",
             fmt::format(
-                "Saved {} pieces as {}.",
-                d.pieces.size(),
-                d.name
-            ).c_str()
-        );
-
-        showTab(2);
-
-        return true;
-    }
-
-    bool applyDecoration(
-        std::filesystem::path const& path
-    ) {
-
-        SavedDecoration d;
-
-        if (!loadDecorationFile(
-            path,
-            d
-        )) {
-
-            showInfo(
-                "Auto Deco",
-                "That decoration file could not be loaded."
-            );
-
-            return false;
-        }
-
-        auto selected =
-            selectedObjects();
-
-        if (selected.empty()) {
-
-            showInfo(
-                "Auto Deco",
-                "Select a block first in the editor."
-            );
-
-            return false;
-        }
-
-        std::vector<GameObject*> targets;
-
-        if (m_applyMode == 0) {
-
-            targets.push_back(
-                selected.front()
-            );
-
-        } else {
-
-            if (!m_editor->m_editorLayer ||
-                !m_editor->m_editorLayer->m_objects)
-                return false;
-
-            int wantedID =
-                selected.front()->m_objectID;
-
-            auto objects =
-                m_editor->m_editorLayer->m_objects;
-
-            for (unsigned i = 0;
-                 i < objects->count();
-                 ++i) {
-
-                auto obj =
-                    static_cast<GameObject*>(
-                        objects->objectAtIndex(i)
-                    );
-
-                if (obj &&
-                    obj->m_objectID == wantedID) {
-
-                    targets.push_back(obj);
-                }
-            }
-        }
-
-        if (!m_editor->m_editorLayer)
-            return false;
-
-        int created = 0;
-
-        for (auto target : targets) {
-
-            auto base =
-                target->getPosition();
-
-            for (auto const& p : d.pieces) {
-
-                auto obj =
-                    m_editor->m_editorLayer->createObject(
-                        p.id,
-                        {
-                            base.x + p.x,
-                            base.y + p.y
-                        },
-                        false
-                    );
-
-                if (!obj)
-                    continue;
-
-                obj->setScale(
-                    p.scale
-                );
-
-                obj->setRotation(
-                    p.rotation
-                );
-
-                obj->setOpacity(
-                    static_cast<GLubyte>(
-                        std::clamp(
-                            p.opacity,
-                            0,
-                            255
-                        )
-                    )
-                );
-
-                obj->setZOrder(
-                    p.z
-                );
-
-                created++;
-            }
-        }
-
-        showInfo(
-            "Auto Deco",
-            fmt::format(
-                "Placed {} decoration pieces.",
-                created
+                "Saved {} objects.",
+                m_blueprint.objects.size()
             ).c_str()
         );
 
         return true;
     }
 
-    void deleteDecoration(
-        std::filesystem::path const& path
-    ) {
+    void rebuildLayers() {
 
-        std::error_code ec;
+        m_layers.clear();
 
-        std::filesystem::remove(
-            path,
-            ec
-        );
+        for (auto const& object :
+            m_blueprint.objects) {
 
-        if (ec) {
-
-            showInfo(
-                "Auto Deco",
-                "Couldn't delete that decoration."
-            );
-
-        } else {
-
-            if (m_selectedFile ==
-                path.string()) {
-
-                m_selectedFile.clear();
+            if (
+                std::find(
+                    m_layers.begin(),
+                    m_layers.end(),
+                    object.z
+                ) == m_layers.end()
+            ) {
+                m_layers.push_back(object.z);
             }
-
-            showTab(2);
         }
-    }
 
-    void onTab(CCObject* sender) {
-
-        auto item =
-            static_cast<CCMenuItemSpriteExtra*>(
-                sender
-            );
-
-        showTab(
-            item->getTag()
+        std::sort(
+            m_layers.begin(),
+            m_layers.end()
         );
     }
 
-    void onContentButton(
-        CCObject* sender
-    ) {
+    void updateUI() {
 
-        auto item =
-            static_cast<CCMenuItemSpriteExtra*>(
-                sender
+        if (!m_hasBlueprint) {
+
+            m_layerLabel->setString(
+                "NO BLUEPRINT"
             );
 
-        int tag =
-            item->getTag();
-
-        if (tag == 10) {
-
-            m_applyMode = 0;
-
-            showTab(0);
+            m_statusLabel->setString(
+                "Select objects and save a blueprint"
+            );
 
             return;
         }
 
-        if (tag == 11) {
-
-            m_applyMode = 1;
-
-            showTab(0);
-
+        if (m_layers.empty())
             return;
+
+        m_layerLabel->setString(
+            fmt::format(
+                "LAYER {} / {}",
+                m_currentLayer + 1,
+                m_layers.size()
+            ).c_str()
+        );
+
+        m_statusLabel->setString(
+            fmt::format(
+                "X {:.0f}   Y {:.0f}",
+                m_blueprintX,
+                m_blueprintY
+            ).c_str()
+        );
+    }
+
+    void clearGhost() {
+
+        if (m_ghostLayer) {
+
+            m_ghostLayer
+                ->removeFromParentAndCleanup(true);
+
+            m_ghostLayer = nullptr;
         }
+    }
 
-        if (tag == 12) {
+    void showGhost() {
 
-            if (m_selectedFile.empty()) {
+        clearGhost();
 
-                showInfo(
-                    "Auto Deco",
-                    "Go to Decorations and LOAD one first."
+        if (!m_hasBlueprint)
+            return;
+
+        if (!m_editor ||
+            !m_editor->m_editorLayer)
+            return;
+
+        m_ghostLayer = CCLayer::create();
+
+        m_editor->m_editorLayer
+            ->addChild(
+                m_ghostLayer,
+                9998
+            );
+
+        if (
+            m_currentLayer < 0 ||
+            m_currentLayer >=
+                static_cast<int>(
+                    m_layers.size()
+                )
+        )
+            return;
+
+        int wantedZ =
+            m_layers[m_currentLayer];
+
+        for (auto const& data :
+            m_blueprint.objects) {
+
+            if (data.z != wantedZ)
+                continue;
+
+            auto sprite =
+                CCSprite::createWithSpriteFrameName(
+                    "GJ_square01.png"
                 );
 
-                return;
-            }
+            if (!sprite)
+                continue;
 
-            applyDecoration(
-                std::filesystem::path(
-                    m_selectedFile
+            sprite->setOpacity(90);
+
+            sprite->setScale(
+                std::max(
+                    0.15f,
+                    data.scale
                 )
             );
 
-            return;
+            sprite->setRotation(
+                data.rotation
+            );
+
+            sprite->setPosition(
+                m_blueprintX + data.x,
+                m_blueprintY + data.y
+            );
+
+            m_ghostLayer->addChild(
+                sprite
+            );
         }
+    }
 
-        if (tag == 13) {
+    void loadFirstBlueprint() {
 
-            m_selectedFile.clear();
+        auto files = getBlueprints();
 
-            showTab(0);
+        if (files.empty()) {
 
-            return;
-        }
-
-        if (tag == 20) {
-
-            saveCurrentSelection();
-
-            return;
-        }
-
-        if (tag == 21) {
-
-            utils::file::openFolder(
-                decoFolder()
+            showMessage(
+                "Blueprint",
+                "No saved blueprints yet."
             );
 
             return;
         }
 
-        if (tag >= 1000 &&
-            tag < 3000) {
+        Blueprint loaded;
 
-            auto pathObj =
-                item->getUserObject();
+        if (!loadBlueprint(
+            files.front(),
+            loaded
+        )) {
 
-            auto str =
-                typeinfo_cast<CCString*>(
-                    pathObj
+            showMessage(
+                "Blueprint",
+                "Failed to load blueprint."
+            );
+
+            return;
+        }
+
+        m_blueprint = loaded;
+
+        m_loadedPath = files.front();
+
+        m_hasBlueprint = true;
+
+        rebuildLayers();
+
+        m_currentLayer = 0;
+
+        auto selected = getSelected();
+
+        if (!selected.empty()) {
+
+            auto position =
+                selected.front()->getPosition();
+
+            m_blueprintX =
+                position.x;
+
+            m_blueprintY =
+                position.y;
+        }
+
+        updateUI();
+
+        showGhost();
+    }
+
+    void placeLayer() {
+
+        if (!m_hasBlueprint)
+            return;
+
+        if (!m_editor ||
+            !m_editor->m_editorLayer)
+            return;
+
+        if (
+            m_currentLayer < 0 ||
+            m_currentLayer >=
+                static_cast<int>(
+                    m_layers.size()
+                )
+        )
+            return;
+
+        int wantedZ =
+            m_layers[m_currentLayer];
+
+        int created = 0;
+
+        for (auto const& data :
+            m_blueprint.objects) {
+
+            if (data.z != wantedZ)
+                continue;
+
+            auto object =
+                m_editor->m_editorLayer->createObject(
+                    data.id,
+                    {
+                        m_blueprintX + data.x,
+                        m_blueprintY + data.y
+                    },
+                    false
                 );
 
-            if (!str)
-                return;
+            if (!object)
+                continue;
 
-            auto path =
-                std::filesystem::path(
-                    str->getCString()
-                );
+            object->setScale(
+                data.scale
+            );
 
-            if (tag >= 2000) {
+            object->setRotation(
+                data.rotation
+            );
 
-                deleteDecoration(path);
+            object->setOpacity(
+                static_cast<GLubyte>(
+                    std::clamp(
+                        data.opacity,
+                        0,
+                        255
+                    )
+                )
+            );
 
-                return;
-            }
+            object->setZOrder(
+                data.z
+            );
 
-            if (tag >= 1000) {
+            created++;
+        }
 
-                m_selectedFile =
-                    path.string();
+        showMessage(
+            "Blueprint",
+            fmt::format(
+                "Placed {} objects on layer {}.",
+                created,
+                m_currentLayer + 1
+            ).c_str()
+        );
+    }
 
-                showTab(0);
+    void placeAll() {
 
-                return;
-            }
+        if (!m_hasBlueprint)
+            return;
+
+        int oldLayer = m_currentLayer;
+
+        for (
+            int i = 0;
+            i < static_cast<int>(
+                m_layers.size()
+            );
+            ++i
+        ) {
+
+            m_currentLayer = i;
+
+            placeLayer();
+        }
+
+        m_currentLayer = oldLayer;
+
+        showGhost();
+        updateUI();
+    }
+
+    void nextLayer() {
+
+        if (!m_hasBlueprint)
+            return;
+
+        if (
+            m_currentLayer + 1 <
+            static_cast<int>(
+                m_layers.size()
+            )
+        ) {
+
+            m_currentLayer++;
+
+            updateUI();
+            showGhost();
         }
     }
 
-    void onClose(CCObject*) {
+    void previousLayer() {
 
-        this->removeFromParentAndCleanup(
-            true
-        );
+        if (!m_hasBlueprint)
+            return;
 
-        if (m_editor) {
+        if (m_currentLayer > 0) {
 
-            auto panel =
-                m_editor->getChildByID(
-                    "autodeco.open"
-                );
+            m_currentLayer--;
 
-            if (panel)
-                panel->setVisible(true);
+            updateUI();
+            showGhost();
+        }
+    }
+
+    void moveX(float amount) {
+
+        if (!m_hasBlueprint)
+            return;
+
+        m_blueprintX += amount;
+
+        updateUI();
+        showGhost();
+    }
+
+    void moveY(float amount) {
+
+        if (!m_hasBlueprint)
+            return;
+
+        m_blueprintY += amount;
+
+        updateUI();
+        showGhost();
+    }
+
+    void showMessage(
+        char const* title,
+        char const* message
+    ) {
+
+        FLAlertLayer::create(
+            title,
+            message,
+            "OK"
+        )->show();
+    }
+
+    void onButton(CCObject* sender) {
+
+        auto button =
+            static_cast<CCMenuItemSpriteExtra*>(
+                sender
+            );
+
+        switch (button->getTag()) {
+
+            case 1:
+                createFromSelection();
+                break;
+
+            case 2:
+                loadFirstBlueprint();
+                break;
+
+            case 3:
+                showGhost();
+                break;
+
+            case 4:
+                placeLayer();
+                break;
+
+            case 5:
+                previousLayer();
+                break;
+
+            case 6:
+                nextLayer();
+                break;
+
+            case 7:
+                placeAll();
+                break;
+
+            case 8:
+                moveX(-10.f);
+                break;
+
+            case 9:
+                moveX(10.f);
+                break;
+
+            case 10:
+                moveY(-10.f);
+                break;
+
+            case 11:
+                moveY(10.f);
+                break;
+
+            case 12:
+                clearGhost();
+                removeFromParentAndCleanup(true);
+                break;
+
+            default:
+                break;
         }
     }
 
 public:
 
-    static AutoDecoMenu* create(
+    static BlueprintMenu* create(
         EditorUI* editor
     ) {
 
         auto ret =
-            new AutoDecoMenu();
+            new BlueprintMenu();
 
-        if (ret &&
-            ret->init(editor)) {
+        if (
+            ret &&
+            ret->init(editor)
+        ) {
 
             ret->autorelease();
 
@@ -1255,9 +961,13 @@ public:
 
         return nullptr;
     }
+
+    ~BlueprintMenu() {
+        clearGhost();
+    }
 };
 
-class AutoDecoOpenButton : public CCLayer {
+class BlueprintOpenButton : public CCLayer {
 
 protected:
 
@@ -1270,8 +980,7 @@ protected:
 
         m_editor = editor;
 
-        auto menu =
-            CCMenu::create();
+        auto menu = CCMenu::create();
 
         menu->setPosition(0, 0);
 
@@ -1280,8 +989,8 @@ protected:
         auto button =
             CCMenuItemSpriteExtra::create(
                 ButtonSprite::create(
-                    "AUTO DECO",
-                    80,
+                    "BLUEPRINT",
+                    90,
                     true,
                     "goldFont.fnt",
                     "GJ_button_01.png",
@@ -1290,19 +999,19 @@ protected:
                 ),
                 this,
                 menu_selector(
-                    AutoDecoOpenButton::onOpen
+                    BlueprintOpenButton::onOpen
                 )
             );
 
         button->setPosition(
-            75.f,
-            75.f
+            70.f,
+            70.f
         );
 
         menu->addChild(button);
 
         this->setID(
-            "autodeco.open"
+            "blueprint.open"_spr
         );
 
         return true;
@@ -1311,7 +1020,7 @@ protected:
     void onOpen(CCObject*) {
 
         auto menu =
-            AutoDecoMenu::create(
+            BlueprintMenu::create(
                 m_editor
             );
 
@@ -1322,21 +1031,21 @@ protected:
             menu,
             10000
         );
-
-        this->setVisible(false);
     }
 
 public:
 
-    static AutoDecoOpenButton* create(
+    static BlueprintOpenButton* create(
         EditorUI* editor
     ) {
 
         auto ret =
-            new AutoDecoOpenButton();
+            new BlueprintOpenButton();
 
-        if (ret &&
-            ret->init(editor)) {
+        if (
+            ret &&
+            ret->init(editor)
+        ) {
 
             ret->autorelease();
 
@@ -1350,7 +1059,7 @@ public:
 };
 
 class $modify(
-    AutoDecoEditorUI,
+    BlueprintEditorUI,
     EditorUI
 ) {
 
@@ -1363,21 +1072,21 @@ class $modify(
         ))
             return false;
 
-        auto open =
-            AutoDecoOpenButton::create(
+        auto button =
+            BlueprintOpenButton::create(
                 this
             );
 
-        if (open) {
+        if (button) {
 
             this->addChild(
-                open,
+                button,
                 9999
             );
         }
 
         log::info(
-            "Auto Deco loaded"
+            "Blueprint Builder loaded"
         );
 
         return true;
