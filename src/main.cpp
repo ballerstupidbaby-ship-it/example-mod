@@ -637,8 +637,10 @@ protected:
             );
 
             sprite->setPosition(
-                m_blueprintX + data.x,
-                m_blueprintY + data.y
+                ccp(
+                    m_blueprintX + data.x,
+                    m_blueprintY + data.y
+                )
             );
 
             m_ghostLayer->addChild(
