@@ -3,9 +3,9 @@
   "gd": {
     "android": "2.2081"
   },
-  "id": "ballerstupidbaby.autodeco",
-  "name": "Auto Deco",
+  "id": "ballerstupidbaby.blueprint",
+  "name": "Blueprint Builder",
   "version": "v1.0.0",
   "developer": "ballerstupidbaby",
-  "description": "Automatically decorates selected editor blocks."
+  "description": "Build Geometry Dash decorations layer by layer using blueprint ghost previews."
 }
